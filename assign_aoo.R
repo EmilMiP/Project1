@@ -2,7 +2,7 @@ library(data.table)
 library(stringr)
 
 #get list of all the summary stats to use, and their true values.
-fileRoot = "D:\\data\\workdata\\707293\\FIUN\\SimData\\pedFiles\\"
+fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
 base = "sibs2"
 sword = "10k2"
 cword = "C200_"
@@ -40,7 +40,7 @@ for (i in 1:no.grps) {
 #colnames(aoo.thres) = paste("grp", 0:no.grps, sep = 
 aoo.thres = c()
 
-for (j in 1:(length(prev.thres2) - 2)) {
+for (j in 1:(length(prev.thres) - 1)) {
   #aoo.thres[[1]][j] = list(c(-Inf, qnorm(1 - prev.thres[j])))
   aoo.thres[j] = qnorm(1 - prev.thres[j])
 } 

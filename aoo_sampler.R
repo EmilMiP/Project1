@@ -7,7 +7,7 @@ library(data.table)
 library(doSNOW)
 library(foreach)
 library(parallel)
-
+library(progress)
 
 sem <- function(x){
   if (length(x) > 1) {
@@ -282,6 +282,7 @@ assign_grps = function(input, thresholds, s, no.age.grps = NULL) {
 }
 
 sampler = function(thres, h2, s){
+  cat("Drawing Initial samples. \n")
   no.age.grps = length(thres)
   cov_matrix = diag(1 - 0.5*h2, s + 3, s + 3) + 0.5*h2 
   cov_matrix[1,1] = h2
@@ -315,12 +316,32 @@ sampler = function(thres, h2, s){
   
   grp.means = as_tibble(grp.means)
   #grp.means.str = apply(grp.means, MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-  
+  cat("assigning samples to groups corresponing to thresholds. \n")
   grp.means$obs <- list(NULL)
   checker.dat = sim.dat[,2:(4 + s)]
-  for (i in 1:dim(grp.means)[1]) {
-    grp.means$obs[[i]] = sim.dat$child_raw[rowSums(checker.dat < grp.thres[,i]) == 3 + s] #3 + s is os, siblings, and parents.
+  
+  
+  iterations = dim(grp.means)[1]
+  cat("Assigning observations to", dim(grp.means)[1], "configurations: \n")
+  cl = makeCluster(nthreads, type = "SOCK")
+  registerDoSNOW(cl)
+  pb = progress_bar$new(
+    format = "[:bar] :percent",
+    total = iterations,
+    width = 100)
+  
+  progress_num = 1:iterations
+  progress = function(n){
+    pb$tick(tokens = list(letter = progress_num[n]))
   }
+  
+  opts = list(progress = progress)
+  
+  ph = foreach(i = 1:iterations,.options.snow = opts) %dopar% {
+    sim.dat$child_raw[rowSums(checker.dat < grp.thres[,i]) == 3 + s] #3 + s is os, siblings, and parents.
+  } 
+  stopCluster(cl)
+  grp.means$obs = ph
   #  fill.entries = match(cur.means.str, grp.means.str)
   #  for (i in seq_along(fill.entries)) {
   #    ii = fill.entries[i]
@@ -330,44 +351,45 @@ sampler = function(thres, h2, s){
   
   sem.vec = sapply(grp.means$obs, FUN = sem)
   
+  if (any(sem.vec > 0.01)) {
+    print("not all obs have a SEM lower than 0.01!")
+  } 
   
-  
-  nthreads = 10
-  cl = makeCluster(nthreads, type = "SOCK")
-  registerDoSNOW(cl)
-  
-  while (any(sem.vec > 0.01)) {
-    cat("configurations requiring resampling:" , sum(sem.vec > 0.01), "\n"  )
-    # ind.max.sem = which.max(sem.vec) ## maybe only take one at a time and update inbetween instead of all at once ?
-    entries = sample(which(sem.vec > 0.01), size = nthreads)
-    # grp.means[entries,]
-    # age.cols = grp.means[ind.max.sem, str_subset(colnames(grp.means), "age")]
-    status.cols = grp.means[entries, grep("status", colnames(grp.means))]
-    
-    ph = foreach(i = 1:nthreads,
-                 .packages = c("data.table", "truncnorm", "mvtnorm", "dplyr")) %dopar% {
-                   resampler(thres = thres, s = s, h2 = h2, status.cols = status.cols[i,], cols = cols)
-                 }
-    for (ii in seq_along(ph)) {
-      update_entries = apply(ph[[ii]][,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-      #    match.ph = match.ph[!is.na(match.ph)]
-      if (!all(grp.means.str[grp.means.str %in% update_entries] == update_entries)) {
-        print("STOOOOOP")
-      }
-      update_entries_no = match(update_entries,grp.means.str)
-      grp.means$obs[update_entries_no] = map2(grp.means$obs[update_entries_no], ph[[ii]]$obs, ~ c(.x, .y))
-      
-    }
-    
-    #    grp.means[["mean"]] = map2_dbl(grp.means$all_obs, grp.means$all_resamp, ~ mean(c(.x,.y)))
-    sem.vec = sapply(grp.means$obs, FUN = sem)
-  }
-  stopCluster(cl)
+# nthreads = 10
+# cl = makeCluster(nthreads, type = "SOCK")
+# registerDoSNOW(cl)
+# 
+# while (any(sem.vec > 0.01)) {
+#   cat("configurations requiring resampling:" , sum(sem.vec > 0.01), "\n"  )
+#   # ind.max.sem = which.max(sem.vec) ## maybe only take one at a time and update inbetween instead of all at once ?
+#   entries = sample(which(sem.vec > 0.01), size = nthreads)
+#   # grp.means[entries,]
+#   # age.cols = grp.means[ind.max.sem, str_subset(colnames(grp.means), "age")]
+#   status.cols = grp.means[entries, grep("status", colnames(grp.means))]
+#   
+#   ph = foreach(i = 1:nthreads,
+#                .packages = c("data.table", "truncnorm", "mvtnorm", "dplyr")) %dopar% {
+#                  resampler(thres = thres, s = s, h2 = h2, status.cols = status.cols[i,], cols = cols)
+#                }
+#   for (ii in seq_along(ph)) {
+#     update_entries = apply(ph[[ii]][,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
+#     #    match.ph = match.ph[!is.na(match.ph)]
+#     if (!all(grp.means.str[grp.means.str %in% update_entries] == update_entries)) {
+#       print("STOOOOOP")
+#     }
+#     update_entries_no = match(update_entries,grp.means.str)
+#     grp.means$obs[update_entries_no] = map2(grp.means$obs[update_entries_no], ph[[ii]]$obs, ~ c(.x, .y))
+#     
+#   }
+#   
+#   #    grp.means[["mean"]] = map2_dbl(grp.means$all_obs, grp.means$all_resamp, ~ mean(c(.x,.y)))
+#   sem.vec = sapply(grp.means$obs, FUN = sem)
+# }
+# stopCluster(cl)
   grp.means[["means"]] = sapply(grp.means$obs, FUN = mean)
   
   return(grp.means)
 }
-
 
 
 
