@@ -2,20 +2,20 @@
 source("aoo_sampler.R")
 
 
-input = phen
-h2 = 0.5
-child_aoo_col = "aoo"
-age_col = "age"
-dad_aoo_col = "dad_aoo"
-mom_aoo_col = "mom_aoo"
-age_parent = "age_parents"
-sib_aoo_col_prefix = "sib"
-sib_aoo_col_suffix = "_aoo"
-new_col_name = "aoo_ltfh"
-nthreads = 10
-prev = .05
-thres = aoo.thres
-s = 2
+#input = phen
+#h2 = 0.5
+#child_aoo_col = "aoo"
+#age_col = "age"
+#dad_aoo_col = "dad_aoo"
+#mom_aoo_col = "mom_aoo"
+#age_parent = "age_parents"
+#sib_aoo_col_prefix = "sib"
+#sib_aoo_col_suffix = "_aoo"
+#new_col_name = "aoo_ltfh"
+#nthreads = 10
+#prev = .05
+#thres = aoo.thres[1]
+#s = 2
 
 assign_pheno = function(input,
                         h2 = 0.5,
@@ -26,7 +26,7 @@ assign_pheno = function(input,
                         age_parent = "age_parents",
                         sib_aoo_col_prefix = "sib",
                         sib_aoo_col_suffix = "_aoo",
-                        new_col_name = "aoo_ltfh",
+                        new_col_name = "gen_lia",
                         nthreads = 10,
                         prev = .05,
                         thres,
@@ -54,19 +54,29 @@ assign_pheno = function(input,
   #assigning the phenotype for cases, cased on their age of onset:
   data[[new_col_name]][data[[child_aoo_col]] != 0] = qnorm(1 - prev * (1 - cum_prev(data[[child_aoo_col]][aoo.people])), sd = sqrt(h2))
   
-  
+  #estimating the genetic lia for controls:
   gen_lia_est = sampler(thres = thres, h2 = h2, s = s)
-  
+  #assigning grps based on aoo and naming columns
+  status = apply(data[,grep( "aoo", colnames(data))], 2, FUN = function(x) as.numeric(x %between% thres[2,]))
+  colnames(status) = gsub("aoo", "status", colnames(data)[grep("aoo", colnames(data))])
+  #appending the grp columns:
+  data = cbind(data, status)
+  #making string to match on:
   est_config = apply(gen_lia_est[,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-  data_str = apply(data[,grep("aoo", colnames(data))], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-  data[[new_col_name]] = NA
+  #removing the configs where os is a case. 
+  #we do not wish to overwrite the already assign phenotype, nor loop over more than needed.
+  est_config = est_config[substr(est_config,1,1) == 0]
+  data_str = apply(data[,grep("status", colnames(data))], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
+#  data[[new_col_name]] = NA
   for (config in 1:length(est_config)) {
     data[[new_col_name]][data_str %in% est_config[config]] = gen_lia_est[config, "means"][[1]]
   }
   return(data)
 }
 
-plot( true$offspringgeno_lia[data[[child_aoo_col]] != 0], data[[new_col_name]][data[[child_aoo_col]] != 0])
-abline(b = 1, a = 0)
+#ph = assign_pheno(input = phen, s = 2, thres = thres)
 
-cor(true$offspringgeno_lia[data[[child_aoo_col]] != 0], data[[new_col_name]][data[[child_aoo_col]] != 0])
+#plot(true$offspringgeno_lia, ph[[new_col_name]])
+#abline(b = 1, a = 0, col = "red")
+
+#cor(true$offspringgeno_lia, data[[new_col_name]])

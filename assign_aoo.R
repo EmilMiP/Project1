@@ -45,6 +45,10 @@ for (j in 1:(length(prev.thres) - 1)) {
   aoo.thres[j] = qnorm(1 - prev.thres[j])
 } 
 
+thres = matrix(c(-Inf, rep(qnorm(1 - .05), 2), Inf), ncol = 2)
+
+
+
 
 
 min.age = 30
