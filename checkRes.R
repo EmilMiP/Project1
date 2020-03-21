@@ -105,7 +105,7 @@ val.list = list()
 for (i in 1:length(true.files)) {
   #true values:
   datrue = fread(true.files[i])
-  datrue = datrue[1:10000,]
+  lia_beta = datrue$lia_betas[1:10000] #currently hardcoded for M = 10k.
   colnames(datrue) = gsub("\\.", "_", colnames(datrue))
   mat = matrix(NA, ncol = 4, nrow = version.len)
   colnames(mat) = c("no. false pos.","no Sig Snps", "chisq_null", "chisq_causal")
@@ -116,12 +116,12 @@ for (i in 1:length(true.files)) {
     da = fread(version.subset[[i]][j])
     da[["chisq"]] = qchisq(da$P, df = 1, lower.tail = FALSE)
     #proportion of true sigg snps
-    mat[j,2] = sum((da$P <= 5e-08) & (datrue$lia_betas_1  != 0))
+    mat[j,2] = sum((da$P <= 5e-08) & (lia_beta  != 0))
     mat[j,1] = sum((da$P <= 5e-08)) - mat[j,2]
     #mean of true non sigg snps
-    mat[j,3] = mean(da$chisq[datrue$lia_betas_1 == 0]) #we are just checking if they are causal
+    mat[j,3] = mean(da$chisq[lia_beta == 0]) #we are just checking if they are causal
     #mean of true sigg snps
-    mat[j,4] = mean(da$chisq[datrue$lia_betas_1 != 0])
+    mat[j,4] = mean(da$chisq[lia_beta != 0])
   }
   val.list[[i]] = mat
 }

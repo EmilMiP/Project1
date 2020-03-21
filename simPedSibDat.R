@@ -231,6 +231,3 @@ for (out in paste("C:\\Users\\FIUN7293\\CommandStationBeta\\EphemeralFolder\\Res
          paste(out,".true", sep = ""), sep = " ", col.names = T)
 }
 
-
-
-
