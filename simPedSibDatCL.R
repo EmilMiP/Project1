@@ -218,6 +218,7 @@ base = args$'baseName'
 size = args$'sizeName'
 identifier = args$'identifier'
 v = args$'v'
+nthreads = args$'nthreads' 
 
 out = paste(args$'out', "/", base, "_", size, "_C", C, "_v",v,identifier, sep = "")
 cat("\n:-================================================================================-:\n")
@@ -227,7 +228,7 @@ children = generateChildren(MAF = MAF,
                             lia.h2 = lia.h2, 
                             M = M, 
                             C = C, 
-                            nthreads = 40, 
+                            nthreads = nthreads, 
                             NoChildren = NoChildren,
                             K = K,
                             out = out,
