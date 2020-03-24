@@ -3,12 +3,13 @@ library(stringr)
 library(ggplot2)
 
 #get list of all the summary stats to use, and their true values.
-fileRoot = "D:\\data\\workdata\\707293\\FIUN\\SimData\\pedFiles\\"
+#fileRoot = "/home/emp/faststorage/project1/simulatedData"
+fileRoot = "D:\\Work\\Project1\\SimlatedData"
 base = "sibs2"
 sword = "10k2"
-cword = "C100_"
-bword = "_NF"
-identifier = "10male2_rev"
+cword = "C200"
+bword = "_F"
+identifier = "NDS"
 #exword = 
 
 
@@ -26,7 +27,8 @@ true.files = str_subset(true.files, pattern = identifier)
 
 
 #path to directory to find files in:
-bedRoot = "D:\\data\\workdata\\707293\\FIUN\\SimData\\bedFiles\\"
+#bedRoot = "/home/emp/faststorage/project1/results/GWAS"
+bedRoot = "D:\\Work\\Project1\\SimlatedData"
 #identifying word for files to look for.
 
 gwas.files = list.files(path = bedRoot, pattern = "CHILD_STATUS", full.names = T)
@@ -47,12 +49,12 @@ ltfh.files = str_subset(ltfh.files, cword)
 ltfh.files = str_subset(ltfh.files, sword)
 ltfh.files = str_subset(ltfh.files, identifier)
 ltfh.files = ltfh.files[-grep("\\.log$", ltfh.files)]
-ltfh.files = ltfh.files[-grep("new_ltfh", ltfh.files)]
+#ltfh.files = ltfh.files[-grep("new_ltfh", ltfh.files)]
 #ltfh.files = ltfh.files[grep(cword, ltfh.files)]
 #ltfh.files = ltfh.files[-grep(exword, ltfh.files)]
 #ltfh.files = ltfh.files[-grep("10male2_rev", ltfh.files)]
 
-ltfhNew.files = list.files(path = bedRoot, pattern = "new_ltfh", full.names = T)
+ltfhNew.files = list.files(path = bedRoot, pattern = "gen_lia", full.names = T)
 ltfhNew.files = str_subset(ltfhNew.files, base)
 ltfhNew.files = str_subset(ltfhNew.files, bword)
 ltfhNew.files = str_subset(ltfhNew.files, cword)
@@ -76,7 +78,7 @@ gwax.files = gwax.files[-grep("\\.log$", gwax.files)]
 #gwax.files = gwax.files[-grep(exword, gwax.files)]
 #gwax.files = gwax.files[-grep("10male2_rev", gwax.files)]
 
-true.gwas.files = list.files(path = bedRoot, pattern = "_lia", full.names = T)
+true.gwas.files = list.files(path = bedRoot, pattern = "offspringgeno", full.names = T)
 true.gwas.files = str_subset(true.gwas.files, base)
 true.gwas.files = str_subset(true.gwas.files, bword)
 true.gwas.files = str_subset(true.gwas.files, cword)
@@ -93,12 +95,12 @@ for (i in 1:length(true.files)) {
   version.subset[[i]] = str_subset(all.files, pattern.vec[i])
 }
 
-version.len = length(version.subset[[3]])
-version.names = sub( ".*v2_", "", version.subset[[3]])
-version.names = gsub("CHILD_STATUS", "GWAS", version.names)
+version.len = length(version.subset[[1]])
+version.names = sub( ".*v1_", "", version.subset[[1]])
+#version.names = gsub("CHILD_STATUS", "GWAS", version.names)
 #version.names = gsub("gendered_stat", "Newltfh_nosib", version.names)
-version.names = gsub("GENDERED_", "", version.names)
-version.names = sort(version.names)
+#version.names = gsub("GENDERED_", "", version.names)
+#version.names = sort(version.names)
 
 #true vals
 val.list = list()

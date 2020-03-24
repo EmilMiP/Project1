@@ -173,7 +173,7 @@ K = .05
 #out = "C:\\Users\\FIUN7293\\CommandStationBeta\\EphemeralFolder\\Results\\sim100kx100k_v10"
 nsib = 2
 
-for (out in paste("C:\\Users\\FIUN7293\\CommandStationBeta\\EphemeralFolder\\Results\\sibs2_10k2_F_C",C,"_v", 1:10,"_NDS", sep = "")) {
+for (out in paste("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_F_C",C,"_v", 1:1,"_NDS", sep = "")) {
   cat("\n:-================================================================================-:\n")
   cat("\nworking on:\n", out, "\n")
   
@@ -181,7 +181,7 @@ for (out in paste("C:\\Users\\FIUN7293\\CommandStationBeta\\EphemeralFolder\\Res
                               lia.h2 = lia.h2, 
                               M = M, 
                               C = C, 
-                              nthreads = 40, 
+                              nthreads = 20, 
                               NoChildren = NoChildren,
                               K = K,
                               out = out,
@@ -214,7 +214,9 @@ for (out in paste("C:\\Users\\FIUN7293\\CommandStationBeta\\EphemeralFolder\\Res
   #                     "lia.threshold" = children$lia.threshold,
   #                     "prevalens" = K,
   #                     "No. Causal SNPs" = C)
-  fwrite(data.frame("lia_betas" = children$lia_betas,
+  fwrite(data.frame("FID" = 1:NoChildren,
+                    "IID" = 1:NoChildren,
+                    "lia_betas" = children$lia_betas,
                     "offspring_lia" = children$offspring_lia,
                     "offspringgeno_lia" = children$offspring_geno_lia,
                     "parents_lia" = children$parents_lia,

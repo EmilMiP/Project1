@@ -74,9 +74,12 @@ assign_pheno = function(input,
   return(data)
 }
 
-#ph = assign_pheno(input = phen, s = 2, thres = thres)
+phen = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10kx10k_F_C200_V1_NDS.phen"))
+thres = matrix(c(-Inf, rep(qnorm(1 - .05), 2), Inf), ncol = 2)
+ph = assign_pheno(input = phen, s = 2, thres = thres)
 
+fwrite(ph, "D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10kx10k_F_C200_V1_NDS.phen", sep = " ", quote = F)
 #plot(true$offspringgeno_lia, ph[[new_col_name]])
-#abline(b = 1, a = 0, col = "red")
+#abline(b = 1, a = 0, col = "blue")
 
 #cor(true$offspringgeno_lia, data[[new_col_name]])

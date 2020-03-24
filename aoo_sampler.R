@@ -352,9 +352,6 @@ sampler = function(thres, h2, s){
   
   sem.vec = sapply(grp.means$obs, FUN = sem)
   
-  if (any(sem.vec > 0.01)) {
-    print("not all obs have a SEM lower than 0.01!")
-  } 
 #  
 # nthreads = 10
 # cl = makeCluster(nthreads, type = "SOCK")
