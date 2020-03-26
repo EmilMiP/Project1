@@ -1,5 +1,4 @@
-#setwd("C:/Users/FIUN7293/CommandStationBeta/Project1")
-#source("/home/emp/faststorage/project1/Project1/aoo_sampler.R")
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 source("aoo_sampler.R")
 
 assign_pheno = function(input,
@@ -67,7 +66,7 @@ library(stringr)
 #get list of all the summary stats to use, and their true values.
 fileRoot = "/home/emp/faststorage/project1/simulatedData"
 #fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
-base = "sibs2"
+base = "/AOOsibs2"
 sword = "10kx10k"
 cword = "C200"
 bword = "NF"
@@ -83,7 +82,11 @@ phen.files = str_subset(phen.files, pattern = bword)
 phen.files = str_subset(phen.files, pattern = identifier)
 
 
-
+for (i in seq_along(phen.files)) {
+  phen = as.data.frame(fread(phen.files[i]))
+  ph = assign_pheno(input = phen, s = 2)
+  
+}
 
 
 
