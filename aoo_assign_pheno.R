@@ -1,4 +1,5 @@
 #setwd("C:/Users/FIUN7293/CommandStationBeta/Project1")
+#source("/home/emp/faststorage/project1/Project1/aoo_sampler.R")
 source("aoo_sampler.R")
 
 assign_pheno = function(input,
@@ -58,6 +59,33 @@ assign_pheno = function(input,
   input[[new_col_name]][aoo.people] = qnorm(1 - prev * (1 - cum_prev(input[[aoo_col]][aoo.people])), sd = sqrt(h2)) #data[[child_aoo_col]] -> input[["aoo"]]
   return(input)
 }
+
+options(scipen = 999)
+library(data.table)
+library(stringr)
+
+#get list of all the summary stats to use, and their true values.
+fileRoot = "/home/emp/faststorage/project1/simulatedData"
+#fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
+base = "sibs2"
+sword = "10kx10k"
+cword = "C200"
+bword = "NF"
+identifier = ""
+#exword = 
+
+
+phen.files = list.files(path = fileRoot, pattern = "\\.phen", full.names = T)
+phen.files = str_subset(phen.files, pattern = base)
+phen.files = str_subset(phen.files, pattern = sword)
+phen.files = str_subset(phen.files, pattern = cword)
+phen.files = str_subset(phen.files, pattern = bword)
+phen.files = str_subset(phen.files, pattern = identifier)
+
+
+
+
+
 
 phen = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10k2_F_C200_V1_NDS.phen"))
 true = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_F_C200_V1_NDS.true"))

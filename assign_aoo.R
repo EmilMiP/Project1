@@ -3,6 +3,7 @@ library(data.table)
 library(stringr)
 
 #get list of all the summary stats to use, and their true values.
+#fileRoot = "/home/emp/faststorage/project1/simulatedData"
 fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
 base = "sibs2"
 sword = "10k2"
@@ -56,6 +57,7 @@ span.of.years = 50
 
 
 for (i in seq_along(true.files))  {
+  print(i)
   true = fread(true.files[i])
 
   phen = data.frame("FID" = 1:dim(true)[1], "IID" = 1:dim(true)[1])

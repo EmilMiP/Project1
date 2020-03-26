@@ -326,46 +326,6 @@ sampler = function(thres, h2, s, actual.combs){
     })
     sim.dat$child_raw[Reduce(intersect, all_ind)]
   })
-
-#  sem.vec = sapply(grp.means$obs, FUN = sem)
-  
-#  
-# nthreads = 10
-# cl = makeCluster(nthreads, type = "SOCK")
-# registerDoSNOW(cl)
-# 
-# while (any(sem.vec > 0.01)) {
-#   cat("configurations requiring resampling:" , sum(sem.vec > 0.01), "\n"  )
-#    ind.max.sem = which.max(sem.vec) ## maybe only take one at a time and update inbetween instead of all at once ?
-#  # entries = sample(which(sem.vec > 0.01), size = nthreads)
-#   # grp.means[entries,]
-#   # age.cols = grp.means[ind.max.sem, str_subset(colnames(grp.means), "age")]
-#   status.cols = grp.means[ind.max.sem, grep("status", colnames(grp.means))]
-#   
-#  # ph = foreach(i = 1:nthreads,
-#  #              .packages = c("data.table", "truncnorm", "mvtnorm", "dplyr")) %dopar% {
-#    grp.means.resamp = resampler(thres = thres, s = s, h2 = h2, status.cols = status.cols, cols = cols,   no.age.grps = no.age.grps)
-#   #             }
-##  for (ii in seq_along(ph)) {
-##    update_entries = apply(ph[[ii]][,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-##    #    match.ph = match.ph[!is.na(match.ph)]
-##    if (!all(grp.means.str[grp.means.str %in% update_entries] == update_entries)) {
-##      print("STOOOOOP")
-##    }
-##    update_entries_no = match(update_entries,grp.means.str)
-##    grp.means$obs[update_entries_no] = map2(grp.means$obs[update_entries_no], ph[[ii]]$obs, ~ c(.x, .y))
-##    
-##  }
-#    update_entries =  apply(grp.means.resamp[,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-#    if (!all(grp.means.str[grp.means.str %in% update_entries] == update_entries)) {
-#            print("STOOOOOP")
-#    }
-#    update_entries_no = match(update_entries,grp.means.str)
-#    grp.means$obs[update_entries_no] = map2(grp.means$obs[update_entries_no], grp.means.resamp$obs, ~ c(.x, .y))
-#   #    grp.means[["mean"]] = map2_dbl(grp.means$all_obs, grp.means$all_resamp, ~ mean(c(.x,.y)))
-#   sem.vec = sapply(grp.means$obs, FUN = sem)
-# }
- #stopCluster(cl)
   grp.means[["means"]] = sapply(grp.means$obs, FUN = mean)
   
   return(grp.means)
