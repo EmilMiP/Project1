@@ -1,85 +1,89 @@
 #setwd("C:/Users/FIUN7293/CommandStationBeta/Project1")
 source("aoo_sampler.R")
 
-
-#input = phen
-#h2 = 0.5
-#child_aoo_col = "aoo"
-#age_col = "age"
-#dad_aoo_col = "dad_aoo"
-#mom_aoo_col = "mom_aoo"
-#age_parent = "age_parents"
-#sib_aoo_col_prefix = "sib"
-#sib_aoo_col_suffix = "_aoo"
-#new_col_name = "aoo_ltfh"
-#nthreads = 10
-#prev = .05
-#thres = aoo.thres[1]
-#s = 2
-
 assign_pheno = function(input,
                         h2 = 0.5,
-                        child_aoo_col = "aoo",
+                        child_aoo_col = "status",
                         age_col = "age",
-                        dad_aoo_col = "dad_aoo",
-                        mom_aoo_col = "mom_aoo",
+                        dad_aoo_col = "dad_status",
+                        mom_aoo_col = "mom_status",
                         age_parent = "age_parents",
                         sib_aoo_col_prefix = "sib",
-                        sib_aoo_col_suffix = "_aoo",
+                        sib_aoo_col_suffix = "_status",
                         new_col_name = "gen_lia",
                         nthreads = 10,
                         prev = .05,
-                        thres,
+                        no.grps = 1,
+                      #  thres,
                         s){
-  #constructs a vector with column names to use:
-  cols = c("FID", "IID", age_col,  child_aoo_col)
-  #includes any siblings:
+  
+  ##### A much better way of dealing with the different grps is needed. we want the continuousness of the age variable combined with the discreteness of the configurations. some conversion to discrete and back again with interpolation ?
+  prev.thres = prev*no.grps:1/no.grps
+  thres = c(qnorm(1 - prev.thres))
+  extreme_vals = c(round(min(input[,grep("age", colnames(input))])), round(max(input[,grep("age", colnames(input))])))
+  age_cutoffs = quantile(seq(extreme_vals[1], extreme_vals[2]), prob = 1:(no.grps - 1)/no.grps)
+  
+
   if (s > 0) {
-    for (i in 1:s) {
-      cols = c(cols, 
-               paste(sib_aoo_col_prefix, i, sib_aoo_col_suffix, sep = ""))
-    }  
+    indivs = c("child", paste("sib", 1:s, sep = ""), "dad", "mom")
+  } else {
+    indivs = c("child", "dad", "mom")
   }
-  #add parents:
-  cols = c(cols, age_parent, dad_aoo_col, mom_aoo_col)
   
-  #extracts relevant info from input data
-  data = input %>%
-    select_at(vars(cols))
+  for (i in seq_along(indivs)) {
+    if (no.grps > 1) {
+      input[[paste(indivs[i], "_status", sep = "")]] =  as.numeric(input[[paste(indivs[i], "_aoo", sep = "")]] > 0) + no.grps * rowSums(outer(input[[paste(indivs[i], "_age", sep = "")]], age_cutoffs, ">"))
+    } else {
+      input[[paste(indivs[i], "_status", sep = "")]] =  as.numeric(input[[paste(indivs[i], "_aoo", sep = "")]] > 0)
+    }
+  }
+  
+  actual.combs = unique(apply(input[, grep("status", colnames(input))], MARGIN = 1, FUN = function(x) paste(x, collapse = "")))
+  
   #assigning phenotype to people with aoo different than 0:
-  data[[new_col_name]] = NA
-  aoo.people = data[[child_aoo_col]] != 0
-  #adding an artificial observation so the emperical cdf does not return 1 for the largest obs, meaning no Inf obs are generated.
-  cum_prev = ecdf(c(data[[child_aoo_col]][aoo.people], max(data[[child_aoo_col]][aoo.people]) + 0.01 )) 
-  #assigning the phenotype for cases, cased on their age of onset:
-  data[[new_col_name]][data[[child_aoo_col]] != 0] = qnorm(1 - prev * (1 - cum_prev(data[[child_aoo_col]][aoo.people])), sd = sqrt(h2))
-  
+  input[[new_col_name]] = NA
   #estimating the genetic lia for controls:
-  gen_lia_est = sampler(thres = thres, h2 = h2, s = s)
-  #assigning grps based on aoo and naming columns
-  status = apply(data[,grep( "aoo", colnames(data))], 2, FUN = function(x) as.numeric(x %between% thres[2,]))
-  colnames(status) = gsub("aoo", "status", colnames(data)[grep("aoo", colnames(data))])
-  #appending the grp columns:
-  data = cbind(data, status)
-  #making string to match on:
-  est_config = apply(gen_lia_est[,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-  #removing the configs where os is a case. 
-  #we do not wish to overwrite the already assign phenotype, nor loop over more than needed.
-  est_config = est_config[substr(est_config,1,1) == 0]
-  data_str = apply(data[,grep("status", colnames(data))], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
+  gen_lia_est = sampler(thres = thres, h2 = h2, s = s, actual.combs)
+
+  input_str = apply(input[,grep("status", colnames(input))], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
 #  data[[new_col_name]] = NA
-  for (config in 1:length(est_config)) {
-    data[[new_col_name]][data_str %in% est_config[config]] = gen_lia_est[config, "means"][[1]]
+  for (config in 1:length(actual.combs)) {
+    input[[new_col_name]][input_str %in% actual.combs[config]] = gen_lia_est[config, "means"][[1]]
   }
-  return(data)
+  aoo_col = paste(indivs[1], "_aoo", sep = "")
+  aoo.people = input[[aoo_col]] != 0
+  #adding an artificial observation so the emperical cdf does not return 1 for the largest obs, meaning no Inf obs are generated.
+  cum_prev = ecdf(c(input[[aoo_col]][aoo.people], max(input[[aoo_col]][aoo.people]) + 0.01 )) 
+  #assigning the phenotype for cases, cased on their age of onset:
+  input[[new_col_name]][aoo.people] = qnorm(1 - prev * (1 - cum_prev(input[[aoo_col]][aoo.people])), sd = sqrt(h2)) #data[[child_aoo_col]] -> input[["aoo"]]
+  return(input)
 }
 
-phen = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10kx10k_F_C200_V1_NDS.phen"))
-thres = matrix(c(-Inf, rep(qnorm(1 - .05), 2), Inf), ncol = 2)
-ph = assign_pheno(input = phen, s = 2, thres = thres)
+phen = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10k2_F_C200_V1_NDS.phen"))
+true = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_F_C200_V1_NDS.true"))
+ltfh = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\LTFHsibs2_10k2_F_C200_V1_NDS.phen"))
+removers = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_F_C200_V1_NDS.excludeList"))
 
-fwrite(ph, "D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10kx10k_F_C200_V1_NDS.phen", sep = " ", quote = F)
-#plot(true$offspringgeno_lia, ph[[new_col_name]])
-#abline(b = 1, a = 0, col = "blue")
 
-#cor(true$offspringgeno_lia, data[[new_col_name]])
+ph = assign_pheno(input = phen, s = 2)
+par(mfrow = c(2,2))
+cor(true$offspringgeno_lia, ph$gen_lia)
+plot(true$offspringgeno_lia, ph$gen_lia)
+abline(b = 1, a = 0, col = "blue")
+
+cor(true$offspringgeno_lia, ltfh$ltfh)
+plot(true$offspringgeno_lia, ltfh$ltfh)
+abline(b = 1, a = 0, col = "blue")
+
+##
+cor(true$offspringgeno_lia[-removers$FID], ph$gen_lia[-removers$FID])
+plot(true$offspringgeno_lia[-removers$FID], ph$gen_lia[-removers$FID])
+abline(b = 1, a = 0, col = "blue")
+
+cor(true$offspringgeno_lia[-removers$FID], ltfh$ltfh[-removers$FID])
+plot(true$offspringgeno_lia[-removers$FID], ltfh$ltfh[-removers$FID])
+abline(b = 1, a = 0, col = "blue")
+
+
+
+

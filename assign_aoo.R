@@ -5,9 +5,9 @@ library(stringr)
 #get list of all the summary stats to use, and their true values.
 fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
 base = "sibs2"
-sword = "10kx10k"
+sword = "10k2"
 cword = "C200"
-bword = "NF"
+bword = "F"
 identifier = "_NDS"
 #exword = 
 
@@ -61,39 +61,44 @@ for (i in seq_along(true.files))  {
   phen = data.frame("FID" = 1:dim(true)[1], "IID" = 1:dim(true)[1])
   
   cases = true$offspring_lia[true$offspring_lia >= qnorm(1 - .05)]
-  cum.prev = ecdf(c(cases, max(cases) + .001)) #addeding a very minor increase to the max obs to prevent infinity later on.
+  #constructing an s-curved cumulative distribution function in the interval of cases:
   
-  phen["aoo"] = 0
+# #data = rbeta(n = 10000, shape1 = 2, shape2 = 100)
+# mindat = min(cases)
+# maxdat = max(cases)
+# norm.dat = (cases - mindat) / (maxdat - mindat)
+# ph = min(cases) + norm.dat * (max(cases) - min(cases)) 
+#  cum.prev = ecdf(c(min(ph) - .001,ph, max(ph) + .001)) #addeding a very minor increase to the max obs to prevent infinity later on.
+  phen["child_aoo"] = 0
   #scaling aoo to be the same interval as the age:
   #transforming vals to be between 0 and 1, then scale up.
-  phen$aoo[true$offspring_lia >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age
-  new.subset = phen$aoo != 0
-  
+  phen$child_aoo[true$offspring_lia >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age   # cum.prev(cases) 
+  new.subset = phen$child_aoo != 0
+  phen["child_age"] = runif(n = dim(phen)[1], min = 0, max = span.of.years)
   s = 2
   for (ii in 1:s) {
     cur.sib = paste("sib", ii, "_aoo", sep = "")
     phen[[cur.sib]] = 0
     cur.sib.lia = paste("sibling_lia.", ii, sep = "")
     cases = true[[cur.sib.lia]][true[[cur.sib.lia]] >= qnorm(1 - .05)]
-    phen[[cur.sib]][true[[cur.sib.lia]] >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age
+    phen[[cur.sib]][true[[cur.sib.lia]] >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age #  cum.prev(cases) #
+    phen[[paste("sib", ii, "_age", sep = "")]] = phen$child_age
   }
-  phen["age"] = runif(n = dim(phen)[1], min = 0, max = span.of.years)
   
   
   phen[["dad_aoo"]] = 0
   cases = true$parents_lia.1[true$parents_lia.1 >= qnorm(1 - .05)]
-  phen$dad_aoo[true$parents_lia.1 >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age
-  
+  phen$dad_aoo[true$parents_lia.1 >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age  #  cum.prev(cases) #
+  phen[["dad_age"]] = phen$child_age + min.age
+
   phen[["mom_aoo"]] = 0
   cases = true$parents_lia.2[true$parents_lia.2 >= qnorm(1 - .05)]
-  phen$mom_aoo[true$parents_lia.2 >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age
+  phen$mom_aoo[true$parents_lia.2 >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age  #  cum.prev(cases) #
+  phen[["mom_age"]] = phen$child_age + min.age
   
-  phen[["age_parents"]] = phen$age + min.age
   file.dist = paste(fileRoot,"AOO", base, "_", sword, "_", bword, "_", cword, "_V", i,identifier, ".phen", sep = "")
   fwrite(phen, file.dist, sep = " ", quote = FALSE)
 }
-
-
 
 
 phen.files = list.files(path = fileRoot, pattern = "\\.phen", full.names = T)
@@ -110,7 +115,6 @@ for (i in seq_along(phen.files)) {
   phen[["GWAX"]] = as.numeric(rowSums(phen[,c("CHILD_STATUS", "P1_STATUS", "P2_STATUS", "SIB_STATUS")]) > 0)
   fwrite(phen, phen.files[i], sep = " ", quote = F)
 }
-
 
 
 

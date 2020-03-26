@@ -1,3 +1,4 @@
+
 library(truncnorm)
 library(mvtnorm)
 library(dplyr)
@@ -243,11 +244,10 @@ cond_sibs = function(s, h2, T_val_sib, sample_size) {
   }
 }
 
-
 h2 = .5
 s = 2
 k = .05
-no.grps = 1
+no.grps = 2
 prev.thres = k*no.grps:1/no.grps
 aoo.thres = matrix(NA, ncol = 3, nrow = length(prev.thres))
 
@@ -261,13 +261,13 @@ checker.mat = as.matrix(create.checker.mat(thres, s = 2, no.age.grps = dim(thres
 
 
 
-no.age.grps = dim(thres)[1]
+no.age.grps = length(thres)
 cov_matrix = diag(1 - 0.5*h2, s + 3, s + 3) + 0.5*h2 
 cov_matrix[1,1] = h2
 cov_matrix[(s + 2),(s + 3)] = cov_matrix[(s + 3),(s + 2)] = 0
 
-child.env = rnorm(n = 5000000, sd = sqrt(1 - h2))
-sim.dat = as.data.frame(rmvnorm(n = 5000000, mean = rep(0, 3 + s), sigma = cov_matrix))
+child.env = rnorm(n = 500000, sd = sqrt(1 - h2))
+sim.dat = as.data.frame(rmvnorm(n = 500000, mean = rep(0, 3 + s), sigma = cov_matrix))
 if (s > 0) {
   colnames(sim.dat) = c("child_raw", paste("sib", 1:s, sep = ""), "dad", "mom")
 } else {
@@ -343,3 +343,60 @@ for (k in 1:(3 + s)) {
 }
 #apply(df, MARGIN = 1, all))
 mean(sim.dat[rowSums(df) == (3 + s),1])
+
+thresholds = thres
+input = sim.dat
+no.age.grps = length(thresholds)
+
+seq_n <- seq_len(nrow(input))
+all_split <- lapply(2:(3 + 1 + s), function(k) {
+  print(k)
+  sapply(1:no.age.grps, function(kk) {
+    grp <- rowSums(outer(input[, k], thresholds[kk], `>`)) + no.age.grps * (kk - 1)
+    split(seq_n, grp)
+  })
+})
+str(all_split)
+grp.cols = grep("grp" ,colnames(checker.mat))
+checker.mat = as.matrix(create.checker.mat(thres, s = 2, no.age.grps = 2, no.status = 2))
+df <- tibble::as_tibble(checker.mat)
+df$obs <- lapply(1:nrow(df), function(i) {
+  tmp <- checker.mat[i, grp.cols]
+  all_ind <- lapply(seq_along(tmp), function(k) {
+      all_split[[k]][[tmp[[k]] + 1]]
+  })
+  input[Reduce(intersect, all_ind), 1]
+})
+df[["means"]] = sapply(df$obs, mean)
+str(df$obs)
+str(df)
+sum(lengths(df$obs))
+
+
+
+create.checker.mat = function(thres, s, no.age.grps = NULL, no.status = NULL){
+  tot.grps = no.age.grps * no.status
+  expand.list = list("child_grp" = 1:(tot.grps) - 1)
+  if (s > 0) {
+    for (i in 1:s) {
+      expand.list[[paste("sib", i, "_grp", sep = "")]] = 1:(tot.grps) - 1
+    }
+  }
+  #  expand.list[["parent_age"]] = 2:no.age.grps # start set to 2, since we dont want parents and offsping with the same age(except for the last grp.)
+  expand.list[["dad_grp"]] = 1:(tot.grps) - 1
+  expand.list[["mom_grp"]] = 1:(tot.grps) - 1
+  
+  res = expand.grid(rev(expand.list))
+  return(rev(res)) #rev used here to match the ordering of the grps with the output of dplyr
+}
+df[which(df[["means"]] < 0),]
+
+
+
+data = rbeta(n = 10000, shape1 = 2, shape2 = 100)
+hist(data, breaks = 50)
+mindat = min(data)
+maxdat = max(data)
+norm.dat = (data - mindat) / (maxdat - mindat)
+ph = min(cases) + norm.dat * (max(cases) - min(cases)) 
+hist(ph, breaks = 50)

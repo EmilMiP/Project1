@@ -43,3 +43,15 @@ ExckydeKustGen = function(keeplist.files, K_child) {
     }
   }
 }
+
+ltfh = fread("D:\\Work\\Project1\\SimlatedData\\LTFHsibs2_10k2_F_C200_v1_NDS.phen")
+aoo = fread("D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10kx10k_F_C200_V1_NDS.phen")
+df = data.frame("true" = datrue$offspringgeno_lia[datrue$offspring_lia >= qnorm(1 - 0.05)],
+                "ltfh" = ltfh$ltfh[datrue$offspring_lia >= qnorm(1 - 0.05)],
+                "aoo" = aoo$gen_lia[datrue$offspring_lia >= qnorm(1 - 0.05)])
+cor(df)
+
+df2 = data.frame("true" = datrue$offspringgeno_lia[!datrue$offspring_lia >= qnorm(1 - 0.05)],
+                "ltfh" = ltfh$ltfh[!datrue$offspring_lia >= qnorm(1 - 0.05)],
+                "aoo" = aoo$gen_lia[!datrue$offspring_lia >= qnorm(1 - 0.05)])
+cor(df2)

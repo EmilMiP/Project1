@@ -203,17 +203,18 @@ cond_sibs = function(sibs.stat, h2, T_val_sib, sample_size) {
   }
 }
 
-create.checker.mat = function(thres, s, no.age.grps = NULL){
-  #"offspring_age" = 1:no.age.grps,
-  expand.list = list("child_status" =  1:no.age.grps - 1)
+create.checker.mat = function(thres, s, no.age.grps = NULL, no.status = NULL){
+  tot.grps = no.age.grps * no.status
+  expand.list = list("child_grp" = 1:(tot.grps) - 1)
   if (s > 0) {
     for (i in 1:s) {
-      expand.list[[paste("sib", i, "_status", sep = "")]] = 1:no.age.grps - 1
+      expand.list[[paste("sib", i, "_grp", sep = "")]] = 1:(tot.grps) - 1
     }
   }
   #  expand.list[["parent_age"]] = 2:no.age.grps # start set to 2, since we dont want parents and offsping with the same age(except for the last grp.)
-  expand.list[["dad_status"]] = 1:no.age.grps - 1
-  expand.list[["mom_status"]] = 1:no.age.grps - 1
+  expand.list[["dad_grp"]] = 1:(tot.grps) - 1
+  expand.list[["mom_grp"]] = 1:(tot.grps) - 1
+  
   res = expand.grid(rev(expand.list))
   return(rev(res)) #rev used here to match the ordering of the grps with the output of dplyr
 }
@@ -282,15 +283,15 @@ assign_grps = function(input, thresholds, s, no.age.grps = NULL) {
   return(input)
 }
 
-sampler = function(thres, h2, s){
+sampler = function(thres, h2, s, actual.combs){
   cat("Drawing Initial samples. \n")
-  no.age.grps = dim(thres)[1]
+  no.age.grps = length(thres)
   cov_matrix = diag(1 - 0.5*h2, s + 3, s + 3) + 0.5*h2 
   cov_matrix[1,1] = h2
   cov_matrix[(s + 2),(s + 3)] = cov_matrix[(s + 3),(s + 2)] = 0
   
-  child.env = rnorm(n = 500000, sd = sqrt(1 - h2))
-  sim.dat = as.data.frame(rmvnorm(n = 500000, mean = rep(0, 3 + s), sigma = cov_matrix))
+  child.env = rnorm(n = 5000000, sd = sqrt(1 - h2))
+  sim.dat = as.data.frame(rmvnorm(n = 5000000, mean = rep(0, 3 + s), sigma = cov_matrix))
   if (s > 0) {
     colnames(sim.dat) = c("child_raw", paste("sib", 1:s, sep = ""), "dad", "mom")
   } else {
@@ -303,91 +304,67 @@ sampler = function(thres, h2, s){
   #moving names to reflect the columns:
   colnames(sim.dat)[2:(4 + s)] = c("child", colnames(sim.dat)[-grep("child", colnames(sim.dat))])
   
-  sim.dat = assign_grps(input = sim.dat, thresholds = thres, s = s, no.age.grps = no.age.grps)
+  cat("Assigning each individual to a group: \n")
+  seq_n <- seq_len(nrow(sim.dat))
+  all_split <- lapply(2:(3 + 1 + s), function(k) {
+    sapply(1:no.age.grps, function(kk) {
+      grp <- rowSums(outer(sim.dat[, k], thres[kk], `>`)) + no.age.grps * (kk - 1)
+      split(seq_n, grp)
+    })
+  })
   
-  cols = colnames(sim.dat)[grep(paste(c("status", "age"), collapse = "|"), colnames(sim.dat))]
-  cur.means = sim.dat %>%
-    group_by_at(vars(cols)) %>%
-    summarise("obs" = list(child_raw)) %>%
-    ungroup()
-  cur.means.str = apply(cur.means[,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-  grp.means = create.checker.mat(thres = thres, s, no.age.grps = no.age.grps)
-  
-#  grp.thres = apply(as.matrix(grp.means[,1:(3 + s)]), 1, FUN = function(x) thres[x + 1]) # reversed dimensions
-  
-  grp.means = as_tibble(grp.means)
-  grp.means.str = apply(grp.means[,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-  cat("assigning samples to groups corresponing to thresholds. \n")
-  grp.means$obs <- list(NULL)
-  #checker.dat = sim.dat[,2:(4 + s)]
-  
-  
-# iterations = dim(grp.means)[1]
-# cat("Assigning observations to", dim(grp.means)[1], "configurations: \n")
-# cl = makeCluster(nthreads, type = "SOCK")
-# registerDoSNOW(cl)
-# pb = progress_bar$new(
-#   format = "[:bar] :percent",
-#   total = iterations,
-#   width = 100)
-# 
-# progress_num = 1:iterations
-# progress = function(n){
-#   pb$tick(tokens = list(letter = progress_num[n]))
-# }
-# 
-# opts = list(progress = progress)
-# 
-# ph = foreach(i = 1:iterations,.options.snow = opts) %dopar% {
-#   sim.dat$child_raw[rowSums(checker.dat < grp.thres[,i]) == 3 + s] #3 + s is os, siblings, and parents.
-# } 
-# stopCluster(cl)
-# grp.means$obs = ph
-    fill.entries = match(cur.means.str, grp.means.str)
-    for (i in seq_along(fill.entries)) {
-      ii = fill.entries[i]
-      grp.means$obs[[ii]] = c(grp.means$obs[[ii]], cur.means$obs[[i]])
-    }
-  
-  
-  sem.vec = sapply(grp.means$obs, FUN = sem)
+  cat("Assigning simulated family to a group: \n")
+  checker.mat = as.matrix(create.checker.mat(thres, s = 2, no.age.grps = 2, no.status = 2))
+  checker.mat = checker.mat[apply(checker.mat, MARGIN = 1, FUN = function(x) paste(x, collapse = "")) %in% actual.combs,]
+  cat("")
+  grp.cols = grep("grp" ,colnames(checker.mat))
+  grp.means <- tibble::as_tibble(checker.mat)
+  grp.means$obs <- lapply(1:nrow(grp.means), function(i) {
+    tmp <- checker.mat[i, grp.cols]
+    all_ind <- lapply(seq_along(tmp), function(k) {
+      all_split[[k]][[tmp[[k]] + 1]]
+    })
+    sim.dat$child_raw[Reduce(intersect, all_ind)]
+  })
+
+#  sem.vec = sapply(grp.means$obs, FUN = sem)
   
 #  
 # nthreads = 10
 # cl = makeCluster(nthreads, type = "SOCK")
 # registerDoSNOW(cl)
 # 
- while (any(sem.vec > 0.01)) {
-   cat("configurations requiring resampling:" , sum(sem.vec > 0.01), "\n"  )
-    ind.max.sem = which.max(sem.vec) ## maybe only take one at a time and update inbetween instead of all at once ?
-  # entries = sample(which(sem.vec > 0.01), size = nthreads)
-   # grp.means[entries,]
-   # age.cols = grp.means[ind.max.sem, str_subset(colnames(grp.means), "age")]
-   status.cols = grp.means[ind.max.sem, grep("status", colnames(grp.means))]
-   
-  # ph = foreach(i = 1:nthreads,
-  #              .packages = c("data.table", "truncnorm", "mvtnorm", "dplyr")) %dopar% {
-    grp.means.resamp = resampler(thres = thres, s = s, h2 = h2, status.cols = status.cols, cols = cols,   no.age.grps = no.age.grps)
-   #             }
-#  for (ii in seq_along(ph)) {
-#    update_entries = apply(ph[[ii]][,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-#    #    match.ph = match.ph[!is.na(match.ph)]
+# while (any(sem.vec > 0.01)) {
+#   cat("configurations requiring resampling:" , sum(sem.vec > 0.01), "\n"  )
+#    ind.max.sem = which.max(sem.vec) ## maybe only take one at a time and update inbetween instead of all at once ?
+#  # entries = sample(which(sem.vec > 0.01), size = nthreads)
+#   # grp.means[entries,]
+#   # age.cols = grp.means[ind.max.sem, str_subset(colnames(grp.means), "age")]
+#   status.cols = grp.means[ind.max.sem, grep("status", colnames(grp.means))]
+#   
+#  # ph = foreach(i = 1:nthreads,
+#  #              .packages = c("data.table", "truncnorm", "mvtnorm", "dplyr")) %dopar% {
+#    grp.means.resamp = resampler(thres = thres, s = s, h2 = h2, status.cols = status.cols, cols = cols,   no.age.grps = no.age.grps)
+#   #             }
+##  for (ii in seq_along(ph)) {
+##    update_entries = apply(ph[[ii]][,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
+##    #    match.ph = match.ph[!is.na(match.ph)]
+##    if (!all(grp.means.str[grp.means.str %in% update_entries] == update_entries)) {
+##      print("STOOOOOP")
+##    }
+##    update_entries_no = match(update_entries,grp.means.str)
+##    grp.means$obs[update_entries_no] = map2(grp.means$obs[update_entries_no], ph[[ii]]$obs, ~ c(.x, .y))
+##    
+##  }
+#    update_entries =  apply(grp.means.resamp[,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
 #    if (!all(grp.means.str[grp.means.str %in% update_entries] == update_entries)) {
-#      print("STOOOOOP")
+#            print("STOOOOOP")
 #    }
 #    update_entries_no = match(update_entries,grp.means.str)
-#    grp.means$obs[update_entries_no] = map2(grp.means$obs[update_entries_no], ph[[ii]]$obs, ~ c(.x, .y))
-#    
-#  }
-    update_entries =  apply(grp.means.resamp[,1:(3 + s)], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
-    if (!all(grp.means.str[grp.means.str %in% update_entries] == update_entries)) {
-            print("STOOOOOP")
-    }
-    update_entries_no = match(update_entries,grp.means.str)
-    grp.means$obs[update_entries_no] = map2(grp.means$obs[update_entries_no], grp.means.resamp$obs, ~ c(.x, .y))
-   #    grp.means[["mean"]] = map2_dbl(grp.means$all_obs, grp.means$all_resamp, ~ mean(c(.x,.y)))
-   sem.vec = sapply(grp.means$obs, FUN = sem)
- }
+#    grp.means$obs[update_entries_no] = map2(grp.means$obs[update_entries_no], grp.means.resamp$obs, ~ c(.x, .y))
+#   #    grp.means[["mean"]] = map2_dbl(grp.means$all_obs, grp.means$all_resamp, ~ mean(c(.x,.y)))
+#   sem.vec = sapply(grp.means$obs, FUN = sem)
+# }
  #stopCluster(cl)
   grp.means[["means"]] = sapply(grp.means$obs, FUN = mean)
   
