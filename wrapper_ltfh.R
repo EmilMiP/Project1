@@ -119,7 +119,7 @@ sibCol = args$'sibCol'
 new_pheno = create_pheno(data = pheno,
                          trait_h2 = h2,
                          T_val_child = child_sib_T,
-                         T_val_parents = parents_T,
+                         T_val_parent = parents_T,
                          relevant_trait_child = childCol,
                          relevant_trait_dad = dadCol,
                          relevant_trait_mom = momCol,
