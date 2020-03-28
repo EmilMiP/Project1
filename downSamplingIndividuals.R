@@ -2,13 +2,13 @@ library(data.table)
 library(stringr)
 
 #get list of all the summary stats to use, and their true values.
-#fileRoot = "/home/emp/faststorage/project1/simulatedData"
-fileRoot = "D:\\Work\\Project1\\SimlatedData"
+fileRoot = "/home/emp/faststorage/project1/simulatedData"
+#fileRoot = "D:\\Work\\Project1\\SimlatedData"
 base = "sibs2"
 sword = "10kx10k"
 cword = "C200"
 bword = "_NF"
-identifier = "NDS"
+identifier = ""
 
 true.files = list.files(path = fileRoot, pattern = "\\.true", full.names = T)
 true.files = str_subset(true.files, pattern = base)
@@ -31,7 +31,7 @@ phen.files = str_subset(phen.files, pattern = identifier)
 #phen.files = str_subset(phen.files, pattern = "/sibs")
 
 
-ExckydeKustGen = function(keeplist.files, K_child) {
+ExcludeListGen = function(keeplist.files, K_child) {
   for (i in seq_along(keeplist.files)) {
     phen = fread(phen.files[i])
     FID = 1:dim(phen)[1]
@@ -43,15 +43,3 @@ ExckydeKustGen = function(keeplist.files, K_child) {
     }
   }
 }
-
-ltfh = fread("D:\\Work\\Project1\\SimlatedData\\LTFHsibs2_10k2_F_C200_v1_NDS.phen")
-aoo = fread("D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10kx10k_F_C200_V1_NDS.phen")
-df = data.frame("true" = datrue$offspringgeno_lia[datrue$offspring_lia >= qnorm(1 - 0.05)],
-                "ltfh" = ltfh$ltfh[datrue$offspring_lia >= qnorm(1 - 0.05)],
-                "aoo" = aoo$gen_lia[datrue$offspring_lia >= qnorm(1 - 0.05)])
-cor(df)
-
-df2 = data.frame("true" = datrue$offspringgeno_lia[!datrue$offspring_lia >= qnorm(1 - 0.05)],
-                "ltfh" = ltfh$ltfh[!datrue$offspring_lia >= qnorm(1 - 0.05)],
-                "aoo" = aoo$gen_lia[!datrue$offspring_lia >= qnorm(1 - 0.05)])
-cor(df2)
