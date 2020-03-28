@@ -99,7 +99,7 @@ if (!is.null(args$'--fixedHeri')) {
 }
 
 distName = unlist(strsplit(args$'phenoFile', "/"))
-distName = distName[[1]][length(distName[[1]])]
+distName = distName[length(distName)]
 outRoot = args$'outDist' #unlist(strsplit(args$'outDist', "/"))
 
 if (!is.null(args$'--identifier')) {
@@ -124,7 +124,7 @@ new_pheno = create_pheno(data = pheno,
                          relevant_trait_dad = dadCol,
                          relevant_trait_mom = momCol,
                          number_siblings_col = "NUM_SIBS",
-                         relevant_trait_sibs = sibCol,
+                         relevant_trait_sib = sibCol,
                          maximum_siblings_to_compute = 4)
 new_pheno = cbind(new_pheno[,1], new_pheno)
 colnames(new_pheno)[1] = "FID"
