@@ -108,7 +108,7 @@ generateChildren = function(
   offspring = generateOffspring(parents.halved, nsib, M, MAF, environ, lia.T, lia.beta)
   
   
-  lock = tempfile()
+ # lock = tempfile()
   
   fwrite(as.data.table(matrix(c(1,1,0,0,0, #FID, IID, Father, Mother, Sex
                                 "offspring_cc" = offspring$offspring.cc[1],
@@ -119,24 +119,24 @@ generateChildren = function(
   #into a vetor where each column comes one after the other.
   
   
-  cat("starting parallelization backend with", nthreads, "threads for generation of children:\n")
-  cl = makeCluster(nthreads, type = "SOCK")
-  registerDoSNOW(cl)
-  iterations = NoChildren
+ # cat("starting parallelization backend with", nthreads, "threads for generation of children:\n")
+#  cl = makeCluster(nthreads, type = "SOCK")
+#  registerDoSNOW(cl)
+ # iterations = NoChildren
   
-  pb = progress_bar$new(
-    format = "[:bar] :percent",
-    total = iterations,
-    width = 100)
+#  pb = progress_bar$new(
+#    format = "[:bar] :percent",
+#    total = iterations,
+#    width = 100)
   
-  progress_num = 1:iterations
-  progress = function(n){
-    pb$tick(tokens = list(letter = progress_num[n]))
-  }
+  #  progress_num = 1:iterations
+  #  progress = function(n){
+  #    pb$tick(tokens = list(letter = progress_num[n]))
+  #}
   
-  opts = list(progress = progress)
+  #opts = list(progress = progress)
   
-  ph = foreach(i = 2:NoChildren, .packages = c("MASS", "stringr", "flock", "data.table"),.options.snow = opts, .export = c("generateOffspring")) %dopar% {
+  ph = foreach(i = 2:NoChildren, .packages = c("MASS", "stringr", "flock", "data.table"), .export = c("generateOffspring")) %do% { #.options.snow = opts,
     #generates a matrix containing genotype [0/1/2] for each potential parent:
     parents =  replicate(n = 2, rbinom(n = M, size = 2, prob = MAF))
     #normalising genotypes:
@@ -159,16 +159,16 @@ generateChildren = function(
                                     "offspring_cc" = offspring$offspring.cc[1],
                                     "offspring_geno" = t(allele.mat[offspring$offspring.geno.unscaled + 1,]) ), nrow = 1))
     
-    locked = flock::lock(lock)
+    # locked = flock::lock(lock)
     fwrite(mat.ph,
            file = paste(out,".ped", sep = ""), sep = " ",
            append = T)
-    flock::unlock(locked)
+    #   flock::unlock(locked)
     
     c("offspring_cc" = offspring$offspring.cc[1], "parents_cc" = parents.cc, "offspring_lia" = offspring$offspring.lia[1], "parents_lia" = parents.lia, "offspring_geno_lia" =  offspring$offspring.geno.lia[1], "parents_geno_lia" = parents.geno.lia, "siblings_cc" = offspring$offspring.cc[-1], "siblings_lia" = offspring$offspring.lia[-1], "siblings_geno_lia" = offspring$offspring.geno.lia[-1] )
   }
   # close(pb)
-  stopCluster(cl)
+  # stopCluster(cl)
   ph = matrix(unlist(ph), ncol = 9 + 3*nsib, byrow = T)
   return(list("offspring_cc" = c(offspring$offspring.cc[1], ph[,1]), 
               "parents_cc" = rbind(parents.cc,ph[,2:3]), 
@@ -204,7 +204,7 @@ nsib = as.numeric(args$'nsib')
 
 #for (out in paste("C:\\Users\\FIUN7293\\CommandStationBeta\\EphemeralFolder\\Results\\sibs2_10k2_F_C",C,"_v", 1:10,"_NDS", sep = "")) {
 
-if (args$'fixedEffect') {
+if (as.logical(args$'fixedEffect')) {
   NFF = "F"
 } else {
   NFF = "NF"
@@ -220,7 +220,7 @@ identifier = args$'identifier'
 v = args$'v'
 nthreads = args$'nthreads' 
 
-out = paste(args$'out', "/", base, "_", size, "_C", C, "_v",v,identifier, sep = "")
+out = paste(args$'out', "/", base, "_", size,"_", NFF , "_C", C, "_v",v,identifier, sep = "")
 cat("\n:-================================================================================-:\n")
 cat("\nworking on:\n", out, "\n")
 
@@ -232,7 +232,7 @@ children = generateChildren(MAF = MAF,
                             NoChildren = NoChildren,
                             K = K,
                             out = out,
-                            fixed.effect = args$'fixedEffect',
+                            fixed.effect = as.logical(args$'fixedEffect'),
                             nsib = nsib)
 
 

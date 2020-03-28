@@ -85,7 +85,7 @@ phen.files = str_subset(phen.files, pattern = identifier)
 for (i in seq_along(phen.files)) {
   phen = as.data.frame(fread(phen.files[i]))
   ph = assign_pheno(input = phen, s = 2)
-  
+  fwrite(ph, phen.files[i], sep = " ", quote = F)
 }
 
 
