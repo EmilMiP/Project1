@@ -42,7 +42,7 @@ cat("\n")
 
 
 
-setwd("/home/emp/faststorage/project1/ltfh/software__v2")
+setwd("/home/emp/faststorage/project1/ltfh/software_v2")
 source("assign_ltfh.R")
 
 library(data.table)
@@ -99,12 +99,13 @@ if (!is.null(args$'--fixedHeri')) {
 }
 
 distName = unlist(strsplit(args$'phenoFile', "/"))
-outRoot = unlist(strsplit(args$'outDist', "/"))
+distName = sapply(distName, FUN = function(x) tail(x, n = 1))
+outRoot = args$'outDist' #unlist(strsplit(args$'outDist', "/"))
 
 if (!is.null(args$'--identifier')) {
-  outDist = paste(outRoot, "LTFH", args$'identifier', distName[2], sep = "")
+  outDist = paste(outRoot, "LTFH", args$'identifier', distName, sep = "")
 } else {
-  outDist = paste(outRoot, "LTFH", distName[2], sep = "")
+  outDist = paste(outRoot, "LTFH", distName, sep = "")
 }
 
 cat("Printing output to:", outDist, "\n")
