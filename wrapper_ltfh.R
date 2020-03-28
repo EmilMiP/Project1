@@ -99,7 +99,7 @@ if (!is.null(args$'--fixedHeri')) {
 }
 
 distName = unlist(strsplit(args$'phenoFile', "/"))
-distName = distName[[1]][length(distName)]
+distName = distName[[1]][length(distName[[1]])]
 outRoot = args$'outDist' #unlist(strsplit(args$'outDist', "/"))
 
 if (!is.null(args$'--identifier')) {
@@ -130,7 +130,4 @@ new_pheno = cbind(new_pheno[,1], new_pheno)
 colnames(new_pheno)[1] = "FID"
 
 fwrite(x = as.data.frame(new_pheno), file = outDist, sep = " ", quote = F, na = "NA")
-
-
-
 
