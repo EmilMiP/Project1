@@ -98,7 +98,7 @@ for (i in seq_along(true.files))  {
   phen$mom_aoo[true$parents_lia.2 >= qnorm(1 - .05)] = (cases - min(cases)) / max(cases - min(cases)) * span.of.years + min.age  #  cum.prev(cases) #
   phen[["mom_age"]] = phen$child_age + min.age
   
-  file.dist = paste(fileRoot,"AOO", base, "_", sword, "_", bword, "_", cword, "_V", i,identifier, ".phen", sep = "")
+  file.dist = paste(fileRoot,"AOO", base, "_", sword, "_", bword, "_", cword, "_v", i,identifier, ".phen", sep = "")
   fwrite(phen, file.dist, sep = " ", quote = FALSE)
 }
 

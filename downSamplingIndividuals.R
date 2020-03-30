@@ -43,3 +43,5 @@ ExcludeListGen = function(keeplist.files, K_child) {
     }
   }
 }
+
+ExcludeListGen(keeplist.files, K_child = 0.05)

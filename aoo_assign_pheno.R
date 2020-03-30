@@ -64,7 +64,7 @@ library(data.table)
 library(stringr)
 
 #get list of all the summary stats to use, and their true values.
-fileRoot = "/home/emp/faststorage/project1/simulatedData"
+fileRoot = "/home/emp/faststorage/project1/simulatedData/"
 #fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
 base = "/AOOsibs2"
 sword = "10kx10k"
@@ -90,10 +90,10 @@ for (i in seq_along(phen.files)) {
 
 
 
-phen = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\AOOsibs2_10k2_F_C200_V1_NDS.phen"))
-true = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_F_C200_V1_NDS.true"))
-ltfh = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\LTFHsibs2_10k2_F_C200_V1_NDS.phen"))
-removers = as.data.frame(fread("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_F_C200_V1_NDS.excludeList"))
+phen = as.data.frame(fread(paste(fileRoot, "AOOsibs2_10k2_F_C200_V1_NDS.phen", sep = "")))
+true = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_F_C200_V1_NDS.true", sep = "")))
+ltfh = as.data.frame(fread(paste(fileRoot, "LTFHsibs2_10k2_F_C200_V1_NDS.phen", sep = "")))
+removers = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_F_C200_V1_NDS.excludeList", sep = "")))
 
 
 ph = assign_pheno(input = phen, s = 2)
