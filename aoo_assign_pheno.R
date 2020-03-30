@@ -37,18 +37,18 @@ assign_pheno = function(input,
       input[[paste(indivs[i], "_status", sep = "")]] =  as.numeric(input[[paste(indivs[i], "_aoo", sep = "")]] > 0)
     }
   }
-  
-  actual.combs = unique(apply(input[, grep("status", colnames(input))], MARGIN = 1, FUN = function(x) paste(x, collapse = "")))
+  input_str = apply(input[,grep("status", colnames(input))], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
+  actual.combs = unique(input_str)
   
   #assigning phenotype to people with aoo different than 0:
   input[[new_col_name]] = NA
   #estimating the genetic lia for controls:
   gen_lia_est = sampler(thres = thres, h2 = h2, s = s, actual.combs)
 
-  input_str = apply(input[,grep("status", colnames(input))], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
+  gen_str = apply(gen_lia_est[,grep("grp", colnames(gen_lia_est))], MARGIN = 1, FUN = function(x) paste(x, collapse = ""))
 #  data[[new_col_name]] = NA
-  for (config in 1:length(actual.combs)) {
-    input[[new_col_name]][input_str %in% actual.combs[config]] = gen_lia_est[config, "means"][[1]]
+  for (config in 1:length(gen_str)) {
+    input[[new_col_name]][input_str %in% gen_str[config]] = gen_lia_est[config, "means"][[1]]
   }
   aoo_col = paste(indivs[1], "_aoo", sep = "")
   aoo.people = input[[aoo_col]] != 0
@@ -56,6 +56,7 @@ assign_pheno = function(input,
   cum_prev = ecdf(c(input[[aoo_col]][aoo.people], max(input[[aoo_col]][aoo.people]) + 0.01 )) 
   #assigning the phenotype for cases, cased on their age of onset:
   input[[new_col_name]][aoo.people] = qnorm(1 - prev * (1 - cum_prev(input[[aoo_col]][aoo.people])), sd = sqrt(h2)) #data[[child_aoo_col]] -> input[["aoo"]]
+  
   return(input)
 }
 
@@ -83,17 +84,17 @@ phen.files = str_subset(phen.files, pattern = identifier)
 
 
 for (i in seq_along(phen.files)) {
+  print(i)
   phen = as.data.frame(fread(phen.files[i]))
   ph = assign_pheno(input = phen, s = 2)
   fwrite(ph, phen.files[i], sep = " ", quote = F)
 }
 
 
-
-phen = as.data.frame(fread(paste(fileRoot, "AOOsibs2_10k2_F_C200_V1_NDS.phen", sep = "")))
-true = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_F_C200_V1_NDS.true", sep = "")))
-ltfh = as.data.frame(fread(paste(fileRoot, "LTFHsibs2_10k2_F_C200_V1_NDS.phen", sep = "")))
-removers = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_F_C200_V1_NDS.excludeList", sep = "")))
+phen = as.data.frame(fread(paste(fileRoot, "AOOsibs2_10k2_F_C200_v1_NDS.phen", sep = "")))
+true = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_F_C200_v1_NDS.true", sep = "")))
+ltfh = as.data.frame(fread(paste(fileRoot, "LTFHsibs2_10k2_F_C200_v1_NDS.phen", sep = "")))
+removers = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_F_C200_v1_NDS.excludeList", sep = "")))
 
 
 ph = assign_pheno(input = phen, s = 2)
@@ -106,6 +107,8 @@ cor(true$offspringgeno_lia, ltfh$ltfh)
 plot(true$offspringgeno_lia, ltfh$ltfh)
 abline(b = 1, a = 0, col = "blue")
 
+
+par(mfrow = c(1,1))
 ##
 cor(true$offspringgeno_lia[-removers$FID], ph$gen_lia[-removers$FID])
 plot(true$offspringgeno_lia[-removers$FID], ph$gen_lia[-removers$FID])
@@ -118,3 +121,8 @@ abline(b = 1, a = 0, col = "blue")
 
 
 
+plot(ltfh$ltfh,ph$gen_lia)
+abline(b = 1, a = 0, col = "blue")
+
+
+points(mvrnorm(n = 5000, mu = c(0,0), Sigma = matrix(c(0.5, 0.35, 0.35, 0.5), ncol = 2, nrow = 2)), col = "red")

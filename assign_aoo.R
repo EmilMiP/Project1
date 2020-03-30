@@ -3,7 +3,7 @@ library(data.table)
 library(stringr)
 
 #get list of all the summary stats to use, and their true values.
-#fileRoot = "/home/emp/faststorage/project1/simulatedData"
+#fileRoot = "/home/emp/faststorage/project1/simulatedData/"
 fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
 base = "sibs2"
 sword = "10k2"
