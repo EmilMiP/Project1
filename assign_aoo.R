@@ -8,8 +8,8 @@ fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
 base = "sibs2"
 sword = "10k2"
 cword = "C200"
-bword = "F"
-identifier = "_NDS"
+bword = "NF"
+identifier = ""
 #exword = 
 
 
@@ -111,6 +111,7 @@ phen.files = str_subset(phen.files, pattern = bword)
 phen.files = str_subset(phen.files, pattern = identifier)
 
 #phen.files = str_subset(phen.files, pattern = "/sibs")
+#phen.files = str_subset(phen.files, pattern = "\\\\sibs")
 
 for (i in seq_along(phen.files)) {
   phen = fread(phen.files[i])

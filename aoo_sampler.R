@@ -205,6 +205,7 @@ cond_sibs = function(sibs.stat, h2, T_val_sib, sample_size) {
 
 create.checker.mat = function(thres, s, no.age.grps = NULL, no.status = NULL){
   tot.grps = no.age.grps * no.status
+
   expand.list = list("child_grp" = 1:(tot.grps) - 1)
   if (s > 0) {
     for (i in 1:s) {
@@ -307,14 +308,21 @@ sampler = function(thres, h2, s, actual.combs){
   cat("Assigning each individual to a group: \n")
   seq_n <- seq_len(nrow(sim.dat))
   all_split <- lapply(2:(3 + 1 + s), function(k) {
-    sapply(1:no.age.grps, function(kk) {
-      grp <- rowSums(outer(sim.dat[, k], thres[kk], `>`)) + no.age.grps * (kk - 1)
+    print(k)
+    if (length(thres) > 1) {
+      sapply(1:no.age.grps, function(kk) {
+
+        grp <- rowSums(outer(sim.dat[, k], thres[kk], `>`)) + no.age.grps * (kk - 1)
+        split(seq_n, grp)
+      })
+    } else {
+      grp <- rowSums(outer(sim.dat[, k], thres, `>`))
       split(seq_n, grp)
-    })
+    }
   })
   
   cat("Assigning simulated family to a group: \n")
-  checker.mat = as.matrix(create.checker.mat(thres, s = 2, no.age.grps = 2, no.status = 2))
+  checker.mat = as.matrix(create.checker.mat(thres, s = 2, no.age.grps = length(thres), no.status = 2))
   checker.mat = checker.mat[apply(checker.mat, MARGIN = 1, FUN = function(x) paste(x, collapse = "")) %in% actual.combs,]
   cat("")
   grp.cols = grep("grp" ,colnames(checker.mat))

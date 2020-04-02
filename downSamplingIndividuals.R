@@ -5,7 +5,7 @@ library(stringr)
 fileRoot = "/home/emp/faststorage/project1/simulatedData"
 #fileRoot = "D:\\Work\\Project1\\SimlatedData"
 base = "sibs2"
-sword = "10kx10k"
+sword = "10k2"
 cword = "C200"
 bword = "_NF"
 identifier = ""

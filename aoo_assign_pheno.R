@@ -13,15 +13,16 @@ assign_pheno = function(input,
                         new_col_name = "gen_lia",
                         nthreads = 10,
                         prev = .05,
-                        no.grps = 1,
+                        no.grps = 2,
+                        no.age.grps = 3,
                       #  thres,
                         s){
   
   ##### A much better way of dealing with the different grps is needed. we want the continuousness of the age variable combined with the discreteness of the configurations. some conversion to discrete and back again with interpolation ?
-  prev.thres = prev*no.grps:1/no.grps
+  prev.thres = prev*no.age.grps:1/no.age.grps
   thres = c(qnorm(1 - prev.thres))
   extreme_vals = c(round(min(input[,grep("age", colnames(input))])), round(max(input[,grep("age", colnames(input))])))
-  age_cutoffs = quantile(seq(extreme_vals[1], extreme_vals[2]), prob = 1:(no.grps - 1)/no.grps)
+  age_cutoffs = quantile(seq(extreme_vals[1], extreme_vals[2]), prob = 1:(no.age.grps - 1)/no.age.grps)
   
 
   if (s > 0) {
@@ -31,7 +32,7 @@ assign_pheno = function(input,
   }
   
   for (i in seq_along(indivs)) {
-    if (no.grps > 1) {
+    if (no.age.grps > 1) {
       input[[paste(indivs[i], "_status", sep = "")]] =  as.numeric(input[[paste(indivs[i], "_aoo", sep = "")]] > 0) + no.grps * rowSums(outer(input[[paste(indivs[i], "_age", sep = "")]], age_cutoffs, ">"))
     } else {
       input[[paste(indivs[i], "_status", sep = "")]] =  as.numeric(input[[paste(indivs[i], "_aoo", sep = "")]] > 0)
@@ -55,7 +56,7 @@ assign_pheno = function(input,
   #adding an artificial observation so the emperical cdf does not return 1 for the largest obs, meaning no Inf obs are generated.
   cum_prev = ecdf(c(input[[aoo_col]][aoo.people], max(input[[aoo_col]][aoo.people]) + 0.01 )) 
   #assigning the phenotype for cases, cased on their age of onset:
-  input[[new_col_name]][aoo.people] = qnorm(1 - prev * (1 - cum_prev(input[[aoo_col]][aoo.people])), sd = sqrt(h2)) #data[[child_aoo_col]] -> input[["aoo"]]
+  input[[new_col_name]][aoo.people] = qnorm(1 - prev * (1 - cum_prev(input[[aoo_col]][aoo.people])), sd = sqrt(0.5*h2)) #data[[child_aoo_col]] -> input[["aoo"]]
   
   return(input)
 }
@@ -67,8 +68,8 @@ library(stringr)
 #get list of all the summary stats to use, and their true values.
 fileRoot = "/home/emp/faststorage/project1/simulatedData/"
 #fileRoot = "D:\\Work\\Project1\\SimlatedData\\"
-base = "/AOOsibs2"
-sword = "10kx10k"
+base = "\\\\AOOsibs2"
+sword = "10k2"
 cword = "C200"
 bword = "NF"
 identifier = ""
@@ -86,15 +87,15 @@ phen.files = str_subset(phen.files, pattern = identifier)
 for (i in seq_along(phen.files)) {
   print(i)
   phen = as.data.frame(fread(phen.files[i]))
-  ph = assign_pheno(input = phen, s = 2)
+  ph = assign_pheno(input = phen, s = 2, no.age.grps = 1, no.grps = 2)
   fwrite(ph, phen.files[i], sep = " ", quote = F)
 }
 
 
-phen = as.data.frame(fread(paste(fileRoot, "AOOsibs2_10k2_F_C200_v1_NDS.phen", sep = "")))
-true = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_F_C200_v1_NDS.true", sep = "")))
-ltfh = as.data.frame(fread(paste(fileRoot, "LTFHsibs2_10k2_F_C200_v1_NDS.phen", sep = "")))
-removers = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_F_C200_v1_NDS.excludeList", sep = "")))
+phen = as.data.frame(fread(paste(fileRoot, "AOOsibs2_10k2_NF_C200_v1.phen", sep = "")))
+true = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_NF_C200_v1.true", sep = "")))
+ltfh = as.data.frame(fread(paste(fileRoot, "LTFHsibs2_10k2_NF_C200_v1.phen", sep = "")))
+removers = as.data.frame(fread(paste(fileRoot, "sibs2_10k2_NF_C200_v1.excludeList", sep = "")))
 
 
 ph = assign_pheno(input = phen, s = 2)
@@ -108,7 +109,6 @@ plot(true$offspringgeno_lia, ltfh$ltfh)
 abline(b = 1, a = 0, col = "blue")
 
 
-par(mfrow = c(1,1))
 ##
 cor(true$offspringgeno_lia[-removers$FID], ph$gen_lia[-removers$FID])
 plot(true$offspringgeno_lia[-removers$FID], ph$gen_lia[-removers$FID])
@@ -118,6 +118,7 @@ cor(true$offspringgeno_lia[-removers$FID], ltfh$ltfh[-removers$FID])
 plot(true$offspringgeno_lia[-removers$FID], ltfh$ltfh[-removers$FID])
 abline(b = 1, a = 0, col = "blue")
 
+par(mfrow = c(1,1))
 
 
 
@@ -125,4 +126,7 @@ plot(ltfh$ltfh,ph$gen_lia)
 abline(b = 1, a = 0, col = "blue")
 
 
-points(mvrnorm(n = 5000, mu = c(0,0), Sigma = matrix(c(0.5, 0.35, 0.35, 0.5), ncol = 2, nrow = 2)), col = "red")
+c(0.4471322, 0.4482737, 0.7199584, 0.7159489 ) #3 grps
+c(0.4462245, 0.4482737, 0.7196258, 0.7159489 ) # two grps
+c(0.4452529, 0.4482737, 0.7191067, 0.7159489 ) # onegrp
+c(0.4500616, 0.4482737, 0.7209058, 0.7159489 ) #one grp, halfheri

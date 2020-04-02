@@ -41,8 +41,8 @@ cat("\n")
 cat("\n")
 
 
-
-setwd("/home/emp/faststorage/project1/ltfh/software v2")
+setwd("D:\\Work\\Project1\\LTFH\\software v2")
+#setwd("/home/emp/faststorage/project1/ltfh/software v2")
 source("assign_ltfh.R")
 
 library(data.table)

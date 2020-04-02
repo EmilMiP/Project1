@@ -173,7 +173,7 @@ K = .05
 #out = "C:\\Users\\FIUN7293\\CommandStationBeta\\EphemeralFolder\\Results\\sim100kx100k_v10"
 nsib = 2
 
-for (out in paste("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_F_C",C,"_v", 1:1,"_NDS", sep = "")) {
+for (out in paste("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_NF_C",C,"_v", 1:10,"", sep = "")) {
   cat("\n:-================================================================================-:\n")
   cat("\nworking on:\n", out, "\n")
   
@@ -181,11 +181,11 @@ for (out in paste("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_F_C",C,"_v", 1:1
                               lia.h2 = lia.h2, 
                               M = M, 
                               C = C, 
-                              nthreads = 20, 
+                              nthreads = 12, 
                               NoChildren = NoChildren,
                               K = K,
                               out = out,
-                              fixed.effect = T,
+                              fixed.effect = F,
                               nsib = nsib)
   
   
