@@ -16,7 +16,7 @@ round(100 * cor(cbind(father_gen, mother_gen, child_gen,
                       father_full, mother_full, child_full))^2, 2)
 
 #### Assign case-control status ####
-K <- 0.05
+K <- 0.1
 (thr <- qnorm(1 - K))
 
 father_status <- (father_full > thr)
@@ -70,3 +70,5 @@ ggplot() +
   geom_abline(col = "red")
 c(cor(child_group$post_mean_liab, child_gen),
   cor(child_status, child_gen))
+# K=0.05 -> 0.4480599 0.3387021
+# K=0.10 -> 0.5334032 0.4196115
