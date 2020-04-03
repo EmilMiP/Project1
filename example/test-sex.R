@@ -1,6 +1,6 @@
 #### Simulating some data (liabilities) ####
 h2 <- 0.5
-N <- 1e4
+N <- 1e5
 account_for_sex <- FALSE
 K <- c(0.08, 0.02)
 # K <- c(0.15, 0.05)
@@ -13,12 +13,8 @@ child_gen  <- (father_gen + mother_gen) / sqrt(2)
 father_full <- father_gen + rnorm(N, sd = sqrt(1 - h2))
 mother_full <- mother_gen + rnorm(N, sd = sqrt(1 - h2))
 child_full  <- child_gen  + rnorm(N, sd = sqrt(1 - h2))
-child_sex <- sample(1:2, N, replace = TRUE)
 
-plot(father_gen, child_gen, pch = 20)
-plot(mother_gen, child_gen, pch = 20)
-round(100 * cor(cbind(father_gen, mother_gen, child_gen, 
-                      father_full, mother_full, child_full))^2, 2)
+child_sex <- sample(1:2, N, replace = TRUE)
 
 #### Assign case-control status ####
 (thr <- qnorm(1 - K))
@@ -66,20 +62,21 @@ group_means <- group_by(df_simu_liab, string, .drop = FALSE) %>%
   print()
 
 #### Assign group posterior mean genetic liabilities to individuals ####
-child_group <- tibble(child_status, father_status, mother_status, child_sex) %>%
+child_group <- tibble(child_gen, child_status, father_status, mother_status, child_sex) %>%
+  sample_frac(0.1, weight = ifelse(child_status, 1e6, 1)) %>%
   left_join(all_config) %>%
   left_join(group_means) %>%
   print()
+count(child_group, child_status)
 
-table(child_group$post_mean_liab)
 library(ggplot2)
-ggplot() +
+ggplot(child_group) +
   bigstatsr::theme_bigstatsr() + 
-  geom_point(aes(child_group$post_mean_liab, child_gen, 
+  geom_point(aes(post_mean_liab, child_gen, 
                  color = as.factor(child_sex)), alpha = 0.3) + 
   geom_abline(col = "black") + 
   theme(legend.position = "top")
-c(cor(child_group$post_mean_liab, child_gen),
-  cor(child_status, child_gen))
+with(child_group, c(cor(post_mean_liab, child_gen), cor(child_status, child_gen)))
 # K=c(0.08, 0.02) -> 0.4263897 0.3067237 vs 0.4214552 0.3067237
 # K=c(0.15, 0.05) -> 0.5238736 0.3874479 vs 0.5171377 0.3874479
+# with oversampling -> 0.6947441 0.6403549 vs 0.6916211 0.6415945
