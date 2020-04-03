@@ -70,5 +70,3 @@ ggplot() +
   geom_abline(col = "red")
 c(cor(child_group$post_mean_liab, child_gen),
   cor(child_status, child_gen))
-# K=0.05 -> 0.4480599 0.3387021
-# K=0.10 -> 0.5334032 0.4196115

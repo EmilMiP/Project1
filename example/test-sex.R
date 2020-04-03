@@ -1,7 +1,11 @@
 #### Simulating some data (liabilities) ####
 h2 <- 0.5
 N <- 1e4
+account_for_sex <- FALSE
+K <- c(0.08, 0.02)
+# K <- c(0.15, 0.05)
 
+set.seed(1)
 father_gen <- rnorm(N, sd = sqrt(h2))
 mother_gen <- rnorm(N, sd = sqrt(h2))
 child_gen  <- (father_gen + mother_gen) / sqrt(2)
@@ -17,12 +21,13 @@ round(100 * cor(cbind(father_gen, mother_gen, child_gen,
                       father_full, mother_full, child_full))^2, 2)
 
 #### Assign case-control status ####
-K <- c(0.15, 0.05)
 (thr <- qnorm(1 - K))
 
 father_status <- (father_full > thr[2])
 mother_status <- (mother_full > thr[1])
 child_status  <- (child_full  > thr[child_sex])
+
+if (!account_for_sex) thr[] <- qnorm(1 - mean(K))
 
 #### Simulate multivariate liabilities ####
 cov <- diag(c(h2, 1 - h2, 1, 1))
@@ -39,6 +44,7 @@ names(all_config) <- c("child_status", "father_status", "mother_status", "child_
 all_config$string <- as.factor(do.call(paste, all_config + 0L))
 all_config
 
+set.seed(1)
 simu_liab <- mvtnorm::rmvnorm(1e7, sigma = cov)
 
 library(dplyr)
@@ -75,5 +81,5 @@ ggplot() +
   theme(legend.position = "top")
 c(cor(child_group$post_mean_liab, child_gen),
   cor(child_status, child_gen))
-# K=c(0.08, 0.02) -> 0.4367113 0.3227023
-# K=c(0.15, 0.05) -> 0.5310814 0.4050311
+# K=c(0.08, 0.02) -> 0.4263897 0.3067237 vs 0.4214552 0.3067237
+# K=c(0.15, 0.05) -> 0.5238736 0.3874479 vs 0.5171377 0.3874479
