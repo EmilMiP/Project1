@@ -16,7 +16,7 @@ round(100 * cor(cbind(father_gen, mother_gen, child_gen,
                       father_full, mother_full, child_full))^2, 2)
 
 #### Assign case-control status ####
-K <- 0.05
+K <- 0.1
 (thr <- qnorm(1 - K))
 
 father_status <- (father_full > thr)
