@@ -1,8 +1,9 @@
 #### Simulating some data (liabilities) ####
 h2 <- 0.5
 N <- 1e5
-account_for_sex <- FALSE
+account_for_sex <- T
 K <- c(0.08, 0.02)
+downsample_frac <- .1 #1 for no downsampling.
 # K <- c(0.15, 0.05)
 
 set.seed(1)
@@ -22,8 +23,8 @@ child_sex <- sample(1:2, N, replace = TRUE)
 father_status <- (father_full > thr[2])
 mother_status <- (mother_full > thr[1])
 child_status  <- (child_full  > thr[child_sex])
-
 if (!account_for_sex) thr[] <- qnorm(1 - mean(K))
+
 
 #### Simulate multivariate liabilities ####
 cov <- diag(c(h2, 1 - h2, 1, 1))
@@ -35,9 +36,15 @@ round(100 * cov(cbind(child_gen, child_env = child_full - child_gen,
                       father_full, mother_full)), 2)
 
 nb_var <- ncol(cov) - 1
-all_config <- do.call(expand.grid, c(rep(list(c(FALSE, TRUE)), nb_var), list(1:2)))
-names(all_config) <- c("child_status", "father_status", "mother_status", "child_sex")
-all_config$string <- as.factor(do.call(paste, all_config + 0L))
+if (!account_for_sex) {
+  all_config <- do.call(expand.grid, c(rep(list(c(FALSE, TRUE)), nb_var)))
+  names(all_config) <- c("child_status", "father_status", "mother_status")
+  all_config$string <- as.factor(do.call(paste, all_config + 0L))
+} else {
+  all_config <- do.call(expand.grid, c(rep(list(c(FALSE, TRUE)), nb_var), list(1:2)))
+  names(all_config) <- c("child_status", "father_status", "mother_status", "child_sex")
+  all_config$string <- as.factor(do.call(paste, all_config + 0L))
+}
 all_config
 
 set.seed(1)
@@ -63,20 +70,26 @@ group_means <- group_by(df_simu_liab, string, .drop = FALSE) %>%
 
 #### Assign group posterior mean genetic liabilities to individuals ####
 child_group <- tibble(child_gen, child_status, father_status, mother_status, child_sex) %>%
-  sample_frac(0.1, weight = ifelse(child_status, 1e6, 1)) %>%
+  sample_frac(downsample_frac, weight = ifelse(child_status, 1e6, 1)) %>%
   left_join(all_config) %>%
   left_join(group_means) %>%
   print()
 count(child_group, child_status)
 
+trues = child_group %>% group_by(string) %>% summarise(true_mean_liab = mean(child_gen)) %>% left_join(group_means)
 library(ggplot2)
 ggplot(child_group) +
   bigstatsr::theme_bigstatsr() + 
   geom_point(aes(post_mean_liab, child_gen, 
-                 color = as.factor(child_sex)), alpha = 0.3) + 
+                 color = as.factor(child_sex)), alpha = 0.3) +
+#  geom_point(data = trues, aes(post_mean_liab, true_mean_liab)) + 
   geom_abline(col = "black") + 
   theme(legend.position = "top")
 with(child_group, c(cor(post_mean_liab, child_gen), cor(child_status, child_gen)))
 # K=c(0.08, 0.02) -> 0.4263897 0.3067237 vs 0.4214552 0.3067237
 # K=c(0.15, 0.05) -> 0.5238736 0.3874479 vs 0.5171377 0.3874479
 # with oversampling -> 0.6947441 0.6403549 vs 0.6916211 0.6415945
+# K=c(0.08, 0.02) -> 0.4263897 0.3067237 vs 0.4214552 0.3067237
+# K=c(0.15, 0.05) -> 0.5238736 0.3874479 vs 0.5171377 0.3874479
+# with oversampling -> 0.6947441 0.6403549 vs 0.6916211 0.6415945
+#0.7109676 0.6698215
