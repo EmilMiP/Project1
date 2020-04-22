@@ -17,7 +17,7 @@ assign_status = function(input, thr, acc_for_sex = account_for_sex) {
   return(input_status)
 }
 assign_status_sex = function(input, thr, input_sex, acc_for_sex = account_for_sex) {
-#  N_input = length(input)9½2 input_sex = sample(1:2, N_input, replace = TRUE)
+  #  N_input = length(input)9½2 input_sex = sample(1:2, N_input, replace = TRUE)
   input_status = c()
   input_status[input_sex == 1] = assign_status(input[input_sex == 1], thr[,1], acc_for_sex = account_for_sex)
   input_status[input_sex == 2] = assign_status(input[input_sex == 2], thr[,2], acc_for_sex = account_for_sex)
@@ -84,7 +84,7 @@ df_simu_liab <- tibble(
   child_status  = assign_status_sex(simu_liab[, 1] + simu_liab[, 2], thr, child_sex),
   father_status = assign_status(simu_liab[, 3], thr[,1]),
   mother_status = assign_status(simu_liab[, 4], thr[,2])
-  ) %>%
+) %>%
   left_join(all_config) %>%
   print()
 
@@ -114,7 +114,7 @@ ggplot(child_group) +
   bigstatsr::theme_bigstatsr() + 
   geom_point(aes(post_mean_liab, child_gen, 
                  color = as.factor(child_sex)), alpha = 0.3) + 
-#  geom_point(data = trues, aes(post_mean_liab, true_mean_liab)) +
+  #  geom_point(data = trues, aes(post_mean_liab, true_mean_liab)) +
   geom_abline(col = "black") + 
   theme(legend.position = "top")
 with(child_group, c(cor(post_mean_liab, child_gen), cor(child_status > nrow(K), child_gen)))
@@ -134,6 +134,5 @@ with(child_group, c(cor(post_mean_liab, child_gen), cor(child_status > nrow(K), 
 
 #all, 
 #0.7195118 0.6530479 vs 0.6923003 0.6438172
-
 
 
