@@ -32,8 +32,8 @@ covSim <- diag(c(h2, 1 - h2, 1, 1))
 colnames(covSim) <- rownames(covSim) <- c("child_gen", "child_env", "father_full", "mother_full")
 covSim[3:4, 1] <- covSim[1, 3:4] <- h2 / 2  
 
-set.seed(1)
-simu_liab <- mvtnorm::rmvnorm(1e7, sigma = covSim)
+#Only need to simulate liabilites once.  We can reuse for different values of K
+simu_liab <- mvtnorm::rmvnorm(5e7, sigma = covSim)  
 
 #### Assign case-control status ####
 K <- prev * 10:1/10
@@ -51,7 +51,6 @@ nb_var <- ncol(covSim) - 1
 all_config <- do.call(expand.grid, rep(list(0:length(thr)), nb_var))
 names(all_config) <- c("child_status", "father_status", "mother_status")
 all_config$string <- as.factor(do.call(paste, all_config + 0L))
-all_config
 
 df_simu_liab <- tibble(
   child_gen     = simu_liab[, 1],
@@ -72,7 +71,6 @@ child_group <- tibble(child_gen = cGenLiab, child_status = cStat, father_status 
   sample_frac(downsample_frac, weight = ifelse(child_status, 1e6, 1)) %>%
   left_join(all_config) %>%
   left_join(group_means) 
-count(child_group, child_status)
 
 trues = child_group %>% group_by(string) %>% summarise(true_mean_liab = mean(child_gen)) %>% left_join(group_means)
 
@@ -82,8 +80,11 @@ ggplot(child_group) +
   geom_point(aes(post_mean_liab, child_gen), alpha = 0.2) + 
   geom_point(data = trues, aes(post_mean_liab, true_mean_liab), col = "red") +
   geom_abline(col = "red")
-c(cor(child_group$post_mean_liab, child_group$child_gen),
-  cor((child_group$child_status > 0) + 0L, child_group$child_gen))
+
+#Squared correlation is a better measurement
+c(cor(child_group$post_mean_liab, child_group$child_gen)**2,
+  cor((child_group$child_status > 0) + 0L, child_group$child_gen)**2)
+
 ### 5% cases + N = 5k
 # k = 0.05:           0.4266394 0.3332564
 # k = c(0.05, 0.01):  0.4296884 0.3332564
@@ -107,3 +108,4 @@ c(cor(child_group$post_mean_liab, child_group$child_gen),
 # k = c(0.05, 0.01):  0.7231299 0.6697706
 # k = 5:1/100         0.7262446 0.6697706
 # k = 10:1/200        0.7278923 0.6697706
+
