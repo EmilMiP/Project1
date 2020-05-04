@@ -1,75 +1,102 @@
-#### Simulating some data (liabilities) ####
+set.seed(1)
 h2 <- 0.5
 N <- 5e4
-prev <- c(0.08, 0.02) * 4  
-account_for_sex <- FALSE
-#account_for_age <- FALSE
-downsample_frac <- .4 #1 for no downsampling.
 NA_frac = 1/3
 
-assign_status = function(input, thr, acc_for_sex = account_for_sex) {
-  len_thr = length(thr)
-  N_input = length(input)
-  input_age = sample(1:len_thr, N_input, replace = TRUE)
-  input_status = rowSums(outer(input, thr, `>`)) + len_thr
-  input_ctrl = which(input_status == len_thr)
-  input_status[input_ctrl] = input_age[input_ctrl]
-  return(input_status)
-}
-assign_status_sex = function(input, thr, input_sex, acc_for_sex = account_for_sex) {
-  #  N_input = length(input)9½2 input_sex = sample(1:2, N_input, replace = TRUE)
-  input_status = c()
-  input_status[input_sex == 1] = assign_status(input[input_sex == 1], thr[,1], acc_for_sex = account_for_sex)
-  input_status[input_sex == 2] = assign_status(input[input_sex == 2], thr[,2], acc_for_sex = account_for_sex)
-  return(input_status)
+#max_prev is between [0,1]
+#ages is defined between [0,1]
+#years is defined between [0,1]
+#sex is 1 or 2
+#sex_eff is defined between [0,1]
+get_prev <- function(max_prev,ages,years,sex,sex_eff=1){
+  prev = ages*years*max_prev
+  prev[sex==2]*sex_eff
+  return(prev)
 }
 
-#K <- outer(10:1/10, prev, "*")
-#K <- outer(5:1/5, prev, "*")
-#K <- outer(c(5, 2)/5, prev, "*")
-K <- matrix(prev,ncol = 2)
-(thr <- qnorm(1 - K))
+#Can be updated for a non-normal distribution, say using observed simulated distribution.
+get_thres <- function(prev){
+    thr <- qnorm(1 - prev)
+    return(thr)
+}
 
-set.seed(1)
-father_gen <- rnorm(N, sd = sqrt(h2))
-mother_gen <- rnorm(N, sd = sqrt(h2))
-child_gen  <- (father_gen + mother_gen) / sqrt(2)
-
-father_full <- father_gen + rnorm(N, sd = sqrt(1 - h2))
-mother_full <- mother_gen + rnorm(N, sd = sqrt(1 - h2))
-child_full  <- child_gen  + rnorm(N, sd = sqrt(1 - h2))
-
-child_sex <- sample(1:2, N, replace = TRUE)
+get_cc_stat <- function(liab, thr){
+  cc_status = liab>thr
+  return(cc_status)
+}
 
 
-father_status <- assign_status(father_full, thr[,1], acc_for_sex = TRUE)
-mother_status <- assign_status(mother_full, thr[,2], acc_for_sex = TRUE)
+#### Simulating some data (liabilities) ####
+simTrioLiab = function(N, h2) {
+  gCov = diag(h2, 3)
+  gCov[3,1] <- gCov[1,3] <- 0.5*h2
+  gCov[3,2] <- gCov[2,3] <- 0.5*h2
+  gLiab = mvrnorm(N, rep(0, 3), gCov)
+  
+  eCov = diag(1-h2, 3)
+  eLiab = mvrnorm(N, rep(0, 3), eCov)
+  
+  fGenLiab <- gLiab[,1]
+  fEnvLiab <- eLiab[,1]
+  mGenLiab <- gLiab[,2]
+  mEnvLiab <- eLiab[,2]
+  cGenLiab <- gLiab[,3]
+  cEnvLiab <- eLiab[,3]
+  
+  fLiab <- fGenLiab + fEnvLiab 
+  mLiab <- mGenLiab + mEnvLiab 
+  cLiab <- cGenLiab + cEnvLiab 
+  trio_liabs = tibble(child_gen = cGenLiab, child_full = cLiab, mother_gen = mGenLiab, mother_full=mLiab, father_gen = fGenLiab, father_full=fLiab)
+  return(trio_liabs)
+}
 
+trio_liabs <- simTrioLiab(N,h2)
 
-#did not work, "cannot allocate vector of size 372.g Gb"
-#child_status  <- rowSums(outer(child_full, thr[,child_sex], `>`))
-child_status = assign_status_sex(child_full, thr, child_sex, acc_for_sex = TRUE)
-
-if (!account_for_sex) thr <- matrix(qnorm(1 - apply(K, MARGIN = 1, mean)), ncol = 2, nrow = nrow(K)) #if all thresholds are the same, then some groups will not get any assigned to them
-#if (!account_for_age) {
-#  thr <- thr[1,]
-#}
 
 #### Simulate multivariate liabilities ####
-cov <- diag(c(h2, 1 - h2, 1, 1))
-colnames(cov) <- rownames(cov) <- c("child_gen", "child_env", "father_full", "mother_full")
-cov[3:4, 1] <- cov[1, 3:4] <- h2 / sqrt(2)  # verify this but seems okay
+covSim <- diag(c(h2, 1 - h2, 1, 1))
+colnames(covSim) <- rownames(covSim) <- c("child_gen", "child_env", "father_full", "mother_full")
+covSim[3:4, 1] <- covSim[1, 3:4] <- h2 / 2  
 
+#Only need to simulate liabilites once.  We can reuse for different values of K
+simu_liab <- mvtnorm::rmvnorm(2e7, sigma = covSim)  
 
+#### Now simulate age, year of birth, sex, etc. ####
+
+# Sampling age, year and sex
+c_sex <- sample(1:2, N, replace = TRUE)
+c_age <- sample(1:2, N, replace = TRUE)/2
+c_year <- sample(1:2, N, replace = TRUE)/2
+m_sex <- rep(1,N)
+m_age <- sample(1:2, N, replace = TRUE)/2
+m_year <- sample(1:2, N, replace = TRUE)/2
+f_sex <- rep(2,N)
+f_age <- sample(1:2, N, replace = TRUE)/2
+f_year <- sample(1:2, N, replace = TRUE)/2
+
+#Now get prevelances
+max_prev = 0.5
+c_prev = get_prev(max_prev,c_age,c_year,c_sex,sex_eff=0.5)
+m_prev = get_prev(max_prev,m_age,m_year,m_sex,sex_eff=0.5)
+f_prev = get_prev(max_prev,f_age,f_year,f_sex,sex_eff=0.5)
+
+#Now get thresholds
+c_thres = get_thres(c_prev)
+m_thres = get_thres(m_prev)
+f_thres = get_thres(f_prev)
+
+#Now get case-control status
+child_status <- get_cc_stat(trio_liabs['child_full'],c_thres)
+mother_status <- get_cc_stat(trio_liabs['mother_full'],m_thres)
+father_status <- get_cc_stat(trio_liabs['father_full'],f_thres)
+
+#Now figure out all possible configurations based on thresholds/prevalences
 nb_var <- ncol(cov) - 1
 all_config <- do.call(expand.grid, c(rep(list(c(NA,1:(nrow(K)*2))), nb_var), list(1:2))) ### change
 names(all_config) <- c("child_status", "father_status", "mother_status", "child_sex")
 all_config$string <- as.factor(do.call(paste, all_config + 0L))
 all_config
 
-
-set.seed(1)
-simu_liab <- mvtnorm::rmvnorm(2e7, sigma = cov)
 
 
 for (i in 2:ncol(cov)) { #starting at 2 to not filter on os twice, i.e. environment and genetic filtering
