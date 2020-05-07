@@ -3,7 +3,6 @@ library(MASS)
 #### Simulating some data (liabilities) ####
 h2 <- 0.5
 N <- 1e4
-prev <- 0.05
 downsample_frac <- 1 #1 for no downsampling.
 
 set.seed(1) #set seed for more reliable comparison
@@ -33,14 +32,15 @@ colnames(covSim) <- rownames(covSim) <- c("child_gen", "child_env", "father_full
 covSim[3:4, 1] <- covSim[1, 3:4] <- h2 / 2  
 
 #Only need to simulate liabilites once.  We can reuse for different values of K
-simu_liab <- mvtnorm::rmvnorm(5e7, sigma = covSim)  
+simu_liab <- mvtnorm::rmvnorm(2e7, sigma = covSim)  
 
 #### Assign case-control status ####
-K <- prev * 10:1/10
+prev <- 0.2
+#K <- prev * 10:1/10
 #K <- prev * 5:1/5
 #K <- prev * c(5,1)/5
 #K <- c(0.05, 0.01)
-#K <- prev
+K <- prev
 (thr <- qnorm(1 - K))
 
 fStat <- rowSums(outer(fLiab, thr, `>`))
@@ -84,6 +84,8 @@ ggplot(child_group) +
 #Squared correlation is a better measurement
 c(cor(child_group$post_mean_liab, child_group$child_gen)**2,
   cor((child_group$child_status > 0) + 0L, child_group$child_gen)**2)
+
+#Following should be updated.
 
 ### 5% cases + N = 5k
 # k = 0.05:           0.4266394 0.3332564
