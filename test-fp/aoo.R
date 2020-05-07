@@ -10,10 +10,9 @@ set.seed(1)
 nsim <- 1e7
 simu_liab <- mvtnorm::rmvnorm(nsim, sigma = cov)
 
-is_case <- function(liab, age) {
-  age_of_onset <- pnorm(liab, lower.tail = FALSE) * 500
-  age > age_of_onset
-}
+liab_to_aoo <- function(liab) pnorm(liab, lower.tail = FALSE) * 500
+
+is_case <- function(liab, age) age > liab_to_aoo(liab)
 
 library(dplyr)
 df_simu_liab_train <- tibble(
@@ -27,7 +26,22 @@ df_simu_liab_train <- tibble(
 ) %>%
   print()
 
-colMeans(df_simu_liab_train)
+
+df_simu_liab_train <- tibble(
+  child_gen   = simu_liab[, 1],
+  child_age   = runif(nsim, 10, 60),
+  father_age  = child_age + runif(nsim, 20, 35),
+  mother_age  = child_age + runif(nsim, 20, 35),
+  child_liab  = simu_liab[, 1] + simu_liab[, 2],
+  father_liab = simu_liab[, 3],
+  mother_liab = simu_liab[, 4]
+) %>%
+  mutate(child_liab  = ifelse(liab_to_aoo(child_liab)  < child_age,  child_liab,  NA),
+         father_liab = ifelse(liab_to_aoo(father_liab) < father_age, father_liab, NA),
+         mother_liab = ifelse(liab_to_aoo(mother_liab) < mother_age, mother_liab, NA)) %>%
+  print()
+
+colMeans(df_simu_liab_train, na.rm = TRUE)
 
 
 mylm <- lm(child_gen ~ child_status + father_status + mother_status,
@@ -57,7 +71,7 @@ library(xgboost)
 y <- df_simu_liab_train[[1]]
 X <- as.matrix(df_simu_liab_train[2:7])
 bst.params <- list(
-  max_depth  = 2,
+  max_depth  = 3,
   base_score = 0,
   verbose    = 2,
   nthread    = 4
