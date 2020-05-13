@@ -160,6 +160,73 @@ sample_table <- trio_liabs %>%
          father_eff_age = get_ea(father_age, father_age_of_onset)) %>%
   rename(father_thres = thres, father_prev = prev)
 
+#### Florian's code using the truncated multivariate normal distribution ####
+
+sample_table$post_gen_liab <- NA
+inv_cov <- solve(cov <- get_cov(h2))
+
+for (i in 1:nrow(sample_table)) {
+  print(i)
+  lims <- cbind(upper = rep(Inf, 4), lower = rep(-Inf, 4))
+  x <- sample_table[i, ]
+  lims[2, x$child_status  + 1] <- x$child_thres
+  lims[3, x$mother_status + 1] <- x$mother_thres
+  lims[4, x$father_status + 1] <- x$father_thres
+  liabs <- tmvtnorm::rtmvnorm(1000, mean = rep(0, 4), H = inv_cov, 
+                              lower = lims[, "lower"], upper = lims[, "upper"],
+                              algorithm = "gibbs")
+  sample_table$post_gen_liab[i] <- colMeans(liabs)[1]
+}
+
+ggplot(sample_table) +
+  bigstatsr::theme_bigstatsr() + 
+  geom_point(aes(post_gen_liab, child_gen, color = factor(child_sex)), alpha = 0.4) + 
+  geom_abline(col = "black", linetype = 2) + 
+  theme(legend.position = "top")
+with(sample_table, cor(post_gen_liab, child_gen))  # 0.3345276
+
+# standard LT-FH
+simu_liab <- mvtnorm::rmvnorm(1e7, sigma = cov)
+thr <- median(c(sample_table$father_thres, sample_table$mother_thres))
+
+all_config <- do.call(expand.grid, rep(list(c(FALSE, TRUE)), 3))
+names(all_config) <- c("child_status", "father_status", "mother_status")
+all_config$string <- as.factor(do.call(paste, all_config + 0L))
+all_config
+
+library(dplyr)
+df_simu_liab <- tibble(
+  child_gen     = simu_liab[, 1],
+  child_status  = (simu_liab[, 2] > thr),
+  father_status = (simu_liab[, 3] > thr),
+  mother_status = (simu_liab[, 4] > thr)
+) %>%
+  left_join(all_config) %>%
+  print()
+
+group_means <- group_by(df_simu_liab, string, .drop = FALSE) %>%
+  summarise(post_mean_liab = mean(child_gen), n = n(),
+            se = sd(child_gen) / sqrt(n)) %>%
+  ungroup() %>%
+  arrange(post_mean_liab) %>%
+  print()
+
+#### Assign group posterior mean genetic liabilities to individuals ####
+child_group <- sample_table %>%
+  left_join(all_config) %>%
+  left_join(group_means) %>%
+  print()
+
+ggplot(child_group) +
+  bigstatsr::theme_bigstatsr() + 
+  geom_point(aes(post_mean_liab, child_gen, color = factor(child_sex)), alpha = 0.4) + 
+  geom_abline(col = "black", linetype = 2) + 
+  theme(legend.position = "top")
+with(child_group, cor(post_mean_liab, child_gen))  # 0.3394834
+
+
+#### Bjarni's original code below ####
+
 ############ -- This concludes the input data simulation -- #############
 #
 # 4. For each genotyped individual identify case-control status identify integral region
