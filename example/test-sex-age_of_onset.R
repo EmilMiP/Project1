@@ -172,18 +172,36 @@ for (i in 1:nrow(sample_table)) {
   lims[2, x$child_status  + 1] <- x$child_thres
   lims[3, x$mother_status + 1] <- x$mother_thres
   lims[4, x$father_status + 1] <- x$father_thres
-  liabs <- tmvtnorm::rtmvnorm(1000, mean = rep(0, 4), H = inv_cov, 
+  liabs <- tmvtnorm::rtmvnorm(2e4, mean = rep(0, 4), H = inv_cov,
                               lower = lims[, "lower"], upper = lims[, "upper"],
-                              algorithm = "gibbs")
+                              algorithm = "gibbs", burn.in.samples = 2000)
+  # liabs <- TruncatedNormal::rtmvnorm(10e3, mu = rep(0, 4), sigma = cov, 
+  #                                    lb = lims[, "lower"], ub = lims[, "upper"])
   sample_table$post_gen_liab[i] <- colMeans(liabs)[1]
 }
+
+microbenchmark::microbenchmark(
+  tmvtnorm::rtmvnorm(1e5, mean = rep(0, 4), H = inv_cov, 
+                     lower = lims[, "lower"], upper = lims[, "upper"],
+                     algorithm = "gibbs"),
+  TruncatedNormal::rtmvnorm(10000, mu = rep(0, 4), sigma = cov, 
+                            lb = lims[, "lower"], ub = lims[, "upper"]),
+  times = 10
+)
 
 ggplot(sample_table) +
   bigstatsr::theme_bigstatsr() + 
   geom_point(aes(post_gen_liab, child_gen, color = factor(child_sex)), alpha = 0.4) + 
   geom_abline(col = "black", linetype = 2) + 
   theme(legend.position = "top")
-with(sample_table, cor(post_gen_liab, child_gen))  # 0.3345276
+with(sample_table, cor(post_gen_liab, child_gen))  
+# 0.3345276 with 1e3 -> 0.3405035 with 100e3 / 0.3409902 with 10e3 and 1e3 burn-in
+ggplot(sample_table) +
+  bigstatsr::theme_bigstatsr() + 
+  geom_point(aes(post_gen_liab, child_gen, color = child_age), alpha = 0.4) + 
+  geom_abline(col = "black", linetype = 2) + 
+  theme(legend.position = "top") +
+  scale_color_viridis_c()
 
 # standard LT-FH
 simu_liab <- mvtnorm::rmvnorm(1e7, sigma = cov)
