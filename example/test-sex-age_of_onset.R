@@ -163,6 +163,7 @@ sample_table <- trio_liabs %>%
 #### Florian's code using the truncated multivariate normal distribution ####
 
 sample_table$post_gen_liab <- NA
+sample_table$post_gen_liab_se <- NA
 inv_cov <- solve(cov <- get_cov(h2))
 
 for (i in 1:nrow(sample_table)) {
@@ -172,30 +173,64 @@ for (i in 1:nrow(sample_table)) {
   lims[2, x$child_status  + 1] <- x$child_thres
   lims[3, x$mother_status + 1] <- x$mother_thres
   lims[4, x$father_status + 1] <- x$father_thres
-  liabs <- tmvtnorm::rtmvnorm(2e4, mean = rep(0, 4), H = inv_cov,
-                              lower = lims[, "lower"], upper = lims[, "upper"],
-                              algorithm = "gibbs", burn.in.samples = 2000)
+  fixed <- c(FALSE, x$child_status, x$mother_status, x$father_status)
+  # liabs <- tmvtnorm::rtmvnorm(2e4, mean = rep(0, 4), H = inv_cov,
+  #                             lower = lims[, "lower"], upper = lims[, "upper"],
+  #                             algorithm = "gibbs", burn.in.samples = 2000)
   # liabs <- TruncatedNormal::rtmvnorm(10e3, mu = rep(0, 4), sigma = cov, 
   #                                    lb = lims[, "lower"], ub = lims[, "upper"])
-  sample_table$post_gen_liab[i] <- colMeans(liabs)[1]
+  # gen_liabs <- liabs[, 1]
+  gen_liabs <- rtmvnorm.gibbs(50e3, burn_in = 1000, sigma = cov, 
+                              lower = lims[, "lower"], 
+                              upper = lims[, "upper"],
+                              fixed = fixed)
+  # gen_liabs <- gen_liabs[seq(1, length(gen_liabs), by = 20)]  # thinning
+  sample_table$post_gen_liab[i] <- mean(gen_liabs)
+  sample_table$post_gen_liab_se[i] <- sd(gen_liabs) / sqrt(length(gen_liabs))
 }
+summary(sample_table$post_gen_liab_se)
 
-microbenchmark::microbenchmark(
-  tmvtnorm::rtmvnorm(1e5, mean = rep(0, 4), H = inv_cov, 
-                     lower = lims[, "lower"], upper = lims[, "upper"],
-                     algorithm = "gibbs"),
-  TruncatedNormal::rtmvnorm(10000, mu = rep(0, 4), sigma = cov, 
-                            lb = lims[, "lower"], ub = lims[, "upper"]),
-  times = 10
-)
+# microbenchmark::microbenchmark(
+#   tmvtnorm::rtmvnorm(10e3, mean = rep(0, 4), H = inv_cov, 
+#                      lower = lims[, "lower"], upper = lims[, "upper"],
+#                      algorithm = "gibbs", burn.in.samples = 1000)[, 1],
+#   TruncatedNormal::rtmvnorm(10000, mu = rep(0, 4), sigma = cov, 
+#                             lb = lims[, "lower"], ub = lims[, "upper"])[, 1],
+#   rtmvnorm.gibbs(10e3, burn_in = 1000, sigma = cov, 
+#                  lower = lims[, "lower"], upper = lims[, "upper"]),
+#   tmvtnorm::rtmvnorm(10e3, mean = rep(0, 4), H = inv_cov, 
+#                      lower = lims[, "lower"], upper = lims[, "upper"])[, 1],
+#   times = 10
+# )
+# 
+# Ngibbs <- 1e6
+# lapply(list(
+#   tmvtnorm::rtmvnorm(Ngibbs, mean = rep(0, 4), H = inv_cov, 
+#                      lower = lims[, "lower"], upper = lims[, "upper"],
+#                      algorithm = "gibbs", burn.in.samples = 1000)[, 1],
+#   TruncatedNormal::rtmvnorm(Ngibbs, mu = rep(0, 4), sigma = cov, 
+#                             lb = lims[, "lower"], ub = lims[, "upper"])[, 1],
+#   rtmvnorm.gibbs(Ngibbs, burn_in = 1000, sigma = cov, 
+#                  lower = lims[, "lower"], upper = lims[, "upper"]),
+#   tmvtnorm::rtmvnorm(Ngibbs, mean = rep(0, 4), H = inv_cov, 
+#                      lower = lims[, "lower"], upper = lims[, "upper"])[, 1]
+# ), summary)
+
+sample_table %>%
+  filter(child_status == 1, mother_status == 1, father_status == 0) %>%
+  select(child_gen, child_year, child_age, child_prev, child_thres, post_gen_liab) %>%
+  print() %>%
+  ggplot(aes(child_prev, post_gen_liab)) + 
+  geom_point()
 
 ggplot(sample_table) +
   bigstatsr::theme_bigstatsr() + 
-  geom_point(aes(post_gen_liab, child_gen, color = factor(child_sex)), alpha = 0.4) + 
+  geom_point(aes(post_gen_liab, child_gen, color = factor(child_status)), alpha = 0.4) + 
   geom_abline(col = "black", linetype = 2) + 
   theme(legend.position = "top")
 with(sample_table, cor(post_gen_liab, child_gen))  
 # 0.3345276 with 1e3 -> 0.3405035 with 100e3 / 0.3409902 with 10e3 and 1e3 burn-in
+
 ggplot(sample_table) +
   bigstatsr::theme_bigstatsr() + 
   geom_point(aes(post_gen_liab, child_gen, color = child_age), alpha = 0.4) + 
