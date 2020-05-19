@@ -1,64 +1,102 @@
+### implements the variable threshold for both cases and controls, rather than cases OR(!) controls.
+
 #### Simulating some data (liabilities) ####
 h2 <- 0.5
 N <- 5e4
-prev <- c(0.08, 0.02) * 4  
-account_for_sex <- FALSE
-#account_for_age <- FALSE
+prev <- c(0.08, 0.02) * 4#.1
 downsample_frac <- .4 #1 for no downsampling.
-NA_frac = 1/3
-
-assign_status = function(input, thr, acc_for_sex = account_for_sex) {
-  len_thr = length(thr)
-  N_input = length(input)
-  input_age = sample(1:len_thr, N_input, replace = TRUE)
-  input_status = rowSums(outer(input, thr, `>`)) + len_thr
-  input_ctrl = which(input_status == len_thr)
-  input_status[input_ctrl] = input_age[input_ctrl]
-  return(input_status)
-}
-assign_status_sex = function(input, thr, input_sex, acc_for_sex = account_for_sex) {
-  #  N_input = length(input)9½2 input_sex = sample(1:2, N_input, replace = TRUE)
-  input_status = c()
-  input_status[input_sex == 1] = assign_status(input[input_sex == 1], thr[,1], acc_for_sex = account_for_sex)
-  input_status[input_sex == 2] = assign_status(input[input_sex == 2], thr[,2], acc_for_sex = account_for_sex)
-  return(input_status)
-}
-
-#K <- outer(10:1/10, prev, "*")
-#K <- outer(5:1/5, prev, "*")
-#K <- outer(c(5, 2)/5, prev, "*")
+nsib = 0
+account_for_sex = FALSE
+NA_frac = .2
 K <- matrix(prev,ncol = 2)
 (thr <- qnorm(1 - K))
 
+#par(mfrow = c(2,3))
+
+
+# Assisting Functions: ----------------------------------------------------
+assign_status = function(input, thr) {
+  len_thr = length(thr)
+  #check relation to thresholds
+  input_status = rowSums(outer(input, thr, `>`)) + len_thr
+  input_ctrl = which(input_status == len_thr)
+  input_status[input_ctrl] = 1
+  return(input_status)
+}
+assign_status_sex = function(input, thr, input_sex) {
+  N_input = length(input) #input_sex = sample(1:2, N_input, replace = TRUE)
+  input_status = numeric(N_input)
+  input_status[input_sex == 1] = assign_status(input = input[input_sex == 1], thr[,1])
+  input_status[input_sex == 2] = assign_status(input[input_sex == 2], thr[,2])
+  return(input_status)
+}
+
+
+
+
+
+#### Simulate multivariate liabilities ####
+if (nsib <= 0) {
+  cov <- diag(c(h2, 1 - h2, 1, 1))
+  colnames(cov) <- rownames(cov) <- c("child_gen", "child_env", "father_full", "mother_full")
+  cov[2 + 1:2, 1] <- cov[1, 2 + 1:2] <- h2 / 2
+  cov
+} else {### This handling of the siblings might be a major assumption
+  cov <- diag(c(h2, 1 - h2, rep(1 - h2 / 2, nsib), 1, 1))
+  colnames(cov) <- rownames(cov) <- c("child_gen", "child_env", if ( nsib > 0) paste("sib",1:nsib, "_full", sep = ""),"father_full", "mother_full")
+  #fixing cov for gen child:
+  cov[2 + nsib + 1:2, 1] <- cov[1, 2 + nsib + 1:2] <- h2 / 2
+  #fixing gen cov for siblings full and gen child:
+  cov[2 + 1:nsib, 1] <- cov[1, 2 + 1:nsib] <- h2 / 2
+  # sorting out the correlations of the siblings
+  cov[2 + 1:nsib, 2 + 1:nsib] <- cov[2 + 1:nsib, 2 + 1:nsib] + h2 / 2 
+  #sorting out the correlation between siblings and parents:
+  cov[ncol(cov) - 0:1, ncol(cov) - 1 - 1:nsib] <- cov[ncol(cov) - 1 - 1:nsib, ncol(cov) - 0:1] <- h2 / 2 
+  cov
+}
+
+
 set.seed(1)
-father_gen <- rnorm(N, sd = sqrt(h2))
-mother_gen <- rnorm(N, sd = sqrt(h2))
-child_gen  <- (father_gen + mother_gen) / sqrt(2)
+family = rmvnorm(n = N, mean = rep(0, 4 + nsib), sigma = cov)
+colnames(family) <- colnames(cov)
 
-father_full <- father_gen + rnorm(N, sd = sqrt(1 - h2))
-mother_full <- mother_gen + rnorm(N, sd = sqrt(1 - h2))
-child_full  <- child_gen  + rnorm(N, sd = sqrt(1 - h2))
+input <- tibble(
+  ID           = 1:N,
+  child_gen    = family[,1],
+  child_full   = family[,1] + family[,2],
+  child_sex    = sample(1:2, N, replace = TRUE),
+  father_full  = family[,ncol(family) - 1],
+  mother_full  = family[, ncol(family)]
+)
 
-child_sex <- sample(1:2, N, replace = TRUE)
+
+if ( nsib > 0) { ### This handling of the siblings might be a major assumption, i.e. sharing genetic liability with the siblings
+  for (i in 1:nsib) {
+    input[[paste("sib", i ,"_full", sep = "")]] = family[,2 + i]
+    input[[paste("sib", i, "_sex", sep = "")]] = sample(1:2, N, replace = TRUE)
+  }
+}
 
 
-father_status <- assign_status(father_full, thr[,1], acc_for_sex = TRUE)
-mother_status <- assign_status(mother_full, thr[,2], acc_for_sex = TRUE)
 
+
+#### Assign case-control status ####
+
+input[["father_status"]] = assign_status(input$father_full, thr[,1])
+input[["mother_status"]] = assign_status(input$mother_full, thr[,2])
+input[["child_status"]]  = assign_status_sex(input$child_full, thr, input$child_sex)
+if ( nsib > 0) {
+  for (i in 1:nsib) {
+    input[[paste("sib", i, "_status", sep = "")]] = input[[4 + 2 * i]] > thr[input[[5 + 2 * i]]]
+  }
+}
 
 #did not work, "cannot allocate vector of size 372.g Gb"
 #child_status  <- rowSums(outer(child_full, thr[,child_sex], `>`))
-child_status = assign_status_sex(child_full, thr, child_sex, acc_for_sex = TRUE)
-
 if (!account_for_sex) thr <- matrix(qnorm(1 - apply(K, MARGIN = 1, mean)), ncol = 2, nrow = nrow(K)) #if all thresholds are the same, then some groups will not get any assigned to them
 #if (!account_for_age) {
 #  thr <- thr[1,]
 #}
-
-#### Simulate multivariate liabilities ####
-cov <- diag(c(h2, 1 - h2, 1, 1))
-colnames(cov) <- rownames(cov) <- c("child_gen", "child_env", "father_full", "mother_full")
-cov[3:4, 1] <- cov[1, 3:4] <- h2 / sqrt(2)  # verify this but seems okay
 
 
 nb_var <- ncol(cov) - 1
@@ -69,7 +107,7 @@ all_config
 
 
 set.seed(1)
-simu_liab <- mvtnorm::rmvnorm(2e7, sigma = cov)
+simu_liab <- mvtnorm::rmvnorm(2e6, sigma = cov)
 
 
 for (i in 2:ncol(cov)) { #starting at 2 to not filter on os twice, i.e. environment and genetic filtering
@@ -99,7 +137,7 @@ group_means <- group_by(df_simu_liab, string, .drop = FALSE) %>%
 
 #### Assign group posterior mean genetic liabilities to individuals ####
 
-child_group <- tibble(child_gen, child_status, father_status, mother_status, child_sex) %>%
+child_group <- input %>%
   sample_frac(downsample_frac, weight = ifelse(child_status > nrow(thr), 1e6, 1)) %>%
   left_join(all_config) %>%
   left_join(group_means) %>%
@@ -118,6 +156,50 @@ ggplot(child_group) +
   geom_abline(col = "black") + 
   theme(legend.position = "top")
 with(child_group, c(cor(post_mean_liab, child_gen), cor(child_status > nrow(K), child_gen)))
+
+
+
+#prev = .1
+
+res = matrix(NA, ncol = 3, nrow = 4)
+
+Klist = list(
+  matrix(prev, ncol = 2),
+  outer(c(5,1)/5, prev, "*"),
+  outer(5:1/5, prev, "*")
+ # outer(10:1/10, prev, "*")
+)
+
+
+account_for_sex = TRUE
+
+for (i in seq_along(Klist)) {
+  (thr <- qnorm(1 - Klist[[i]]))
+  
+  #  len_thr = length(thr)
+  #### Assign case-control status ####
+  input[["father_status"]] = assign_status(input$father_full, thr[,1])
+  input[["mother_status"]] = assign_status(input$mother_full, thr[,2])
+  input[["child_status"]]  = assign_status_sex(input$child_full, thr, input$child_sex)
+ 
+  omni_dat = omniscience(input = input, thr = thr, h2 = 0.5, init_samp = 2e6, account_for_sex = account_for_sex, NA_frac = 1/(1 + length(thr)*2))
+  colnames(omni_dat)[11] = "omni"
+  ph = child_group %>% left_join(omni_dat, by = c("ID", "child_gen"))
+  res[i,] = c(cor(ph$post_mean_liab, ph$child_gen),
+              cor(ph$child_status.x, ph$child_gen),
+              cor(ph$omni, ph$child_gen))
+  p <- ggplot(omni_dat) +
+    bigstatsr::theme_bigstatsr() + 
+    geom_point(aes(omni, child_gen, 
+                   color = as.factor(child_sex)), alpha = 0.3) + 
+    #  geom_point(data = trues, aes(post_mean_liab, true_mean_liab)) +
+    geom_abline(col = "black") + 
+    theme(legend.position = "top")
+  print(p)
+}
+res
+res[,3]/res[,1]
+
 
 ####/w sex + age, 50% cases
 #prev <- c(0.08, 0.02) + N = 10k      0.7161538 0.6231014

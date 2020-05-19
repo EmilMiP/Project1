@@ -1,103 +1,27 @@
 library(dplyr)
+library(truncnorm)
+library(mvtnorm)
 
 # Assisting Functions: ----------------------------------------------------
-assign_status = function(input, thr, acc_for_sex = account_for_sex) {
+assign_status = function(input, thr) {
   len_thr = length(thr)
-  N_input = length(input)
-  input_age = sample(1:len_thr, N_input, replace = TRUE)
+  #check relation to thresholds
   input_status = rowSums(outer(input, thr, `>`)) + len_thr
   input_ctrl = which(input_status == len_thr)
-  input_status[input_ctrl] = input_age[input_ctrl]
+  input_status[input_ctrl] = 1
   return(input_status)
 }
-assign_status_sex = function(input, thr, input_sex, acc_for_sex = account_for_sex) {
-  #  N_input = length(input)9½2 input_sex = sample(1:2, N_input, replace = TRUE)
-  input_status = c()
-  input_status[input_sex == 1] = assign_status(input[input_sex == 1], thr[,1], acc_for_sex = account_for_sex)
-  input_status[input_sex == 2] = assign_status(input[input_sex == 2], thr[,2], acc_for_sex = account_for_sex)
+assign_status_sex = function(input, thr, input_sex) {
+  N_input = length(input) #input_sex = sample(1:2, N_input, replace = TRUE)
+  input_status = numeric(N_input)
+  input_status[input_sex == 1] = assign_status(input = input[input_sex == 1], thr[,1])
+  input_status[input_sex == 2] = assign_status(input[input_sex == 2], thr[,2])
   return(input_status)
 }
 
 
 
-
-
-#### Simulating some data (liabilities) ####
-h2 <- 0.5
-N <- 5e4
-prev <- c(0.08, 0.02) * 4  
-account_for_sex <- FALSE
-#account_for_age <- FALSE
-downsample_frac <- .4 #1 for no downsampling.
-NA_frac = 1/3
-nsib <- 2
-
-#### parameters needed:
-#threshold, should reflect sex difference and aoo
-#input data
-###column names needed, i.e. sex column, name of parents etc.
-#number of siblings to use
-#fraction of NA values in simulated data
-#number of simulated data in initial simulation
-#heritability
-#
-
-#K <- outer(10:1/10, prev, "*")
-#K <- outer(5:1/5, prev, "*")
-#K <- outer(c(5, 2)/5, prev, "*")
-K <- matrix(prev,ncol = 2)
-(thr <- qnorm(1 - K))
-
-
-
-
-set.seed(1)
-father_gen <- rnorm(N, sd = sqrt(h2))
-mother_gen <- rnorm(N, sd = sqrt(h2))
-child_gen  <- (father_gen + mother_gen) / sqrt(2)
-
-father_full <- father_gen + rnorm(N, sd = sqrt(1 - h2))
-mother_full <- mother_gen + rnorm(N, sd = sqrt(1 - h2))
-child_full  <- child_gen  + rnorm(N, sd = sqrt(1 - h2))
-
-child_sex <- sample(1:2, N, replace = TRUE)
-
-if ( nsib > 0) { ### This handling of the siblings might be a major assumption, i.e. sharing genetic liability with the siblings
-  sib_full <- as_tibble(
-    sapply(1:nsib, FUN = function(x) child_gen + rnorm(N, sd = sqrt(1 - h2)))
-  )
-  colnames(sib_full) = paste("sib", 1:nsib ,"_full", sep = "")
-  
-  sib_sex <- as_tibble(
-    sapply(1:nsib, FUN = function(x) sample(1:2, N, replace = TRUE))
-  )
-  colnames(sib_sex) <- paste("sib", 1:nsib, "_sex", sep = "")
-}
-
-input <- tibble(
-  FID           = 1:N,
-  IID           = 1:N,
-  child_gen     = child_gen,
-  child_sex     = child_sex,
-  child_status  = assign_status_sex(child_full, thr, child_sex, acc_for_sex = TRUE),
-  father_status = assign_status(father_full, thr[,1], acc_for_sex = TRUE),
-  mother_status = assign_status(mother_full, thr[,2], acc_for_sex = TRUE),
-)
-
-if ( nsib > 0) {
-  for (i in 1:nsib) {
-    input[[paste("sib", i, "_sex", sep = "")]] <- sib_sex[[i]]
-    input[[paste("sib", i, "_status", sep = "")]] <- assign_status_sex(sib_full[[i]], thr, sib_sex[[i]])
-  }
-}
-
-
-
-
-
-
-
-omniscience = function(input, h2, thr, nsib = 0, NA_frac = .3, init_samp = 2e7, account_for_sex = FALSE, downsample_frac = 1) {
+omniscience = function(input, h2, thr, nsib = 0, NA_frac, init_samp = 1e7, account_for_sex = FALSE, downsample_frac = 1) { #= 1/(1 + 2*nrow(thr))
 
   ###assuming names are fixed for now, but might need to make them variable at a later point  
   
@@ -105,41 +29,57 @@ omniscience = function(input, h2, thr, nsib = 0, NA_frac = .3, init_samp = 2e7, 
 if (nsib <= 0) {
   cov <- diag(c(h2, 1 - h2, 1, 1))
   colnames(cov) <- rownames(cov) <- c("child_gen", "child_env", "father_full", "mother_full")
-  cov[2 + 1:2, 1] <- cov[1, 2 + 1:2] <- h2 / sqrt(2)  # verify this but seems okay
-#  cov
+  cov[2 + 1:2, 1] <- cov[1, 2 + 1:2] <- h2 / 2 
+  cov
 #  round(100 * cov(cbind(child_gen, child_env = child_full - child_gen, 
 #                        father_full, mother_full)), 2)
 } else {### This handling of the siblings might be a major assumption
-  cov <- diag(c(h2, 1 - h2, rep(1 - h2, nsib), 1, 1))
-  colnames(cov) <- rownames(cov) <- c("child_gen", "child_env", if ( nsib > 0) paste("sib",1:nsib, "_full", sep = ""),"father_full", "mother_full")
-  #fixing cov for gen child:
-  cov[2 + nsib + 1:2, 1] <- cov[1, 2 + nsib + 1:2] <- h2 / sqrt(2)  # verify this but seems okay
-  #fixing gen cov for siblings full and gen child:
-  cov[2 + 1:nsib, 1] <- cov[1, 2 + 1:nsib] <- h2  # verify this
-  # sorting out the correlations of the siblings
-  cov[2 + 1:nsib, 2 + 1:nsib] <- cov[2 + 1:nsib, 2 + 1:nsib] + h2 # verify this 
-  #sorting out the correlation between siblings and parents:
-  cov[ncol(cov) - 0:1, ncol(cov) - 1 - 1:nsib] <- cov[ncol(cov) - 1 - 1:nsib, ncol(cov) - 0:1] <- h2 / sqrt(2) # verify this 
-#  print(cov)
-#  round(100 * cov(cbind(child_gen, 
-#                        child_env = child_full - child_gen, 
-#                        sib_full = sib_full,
-#                        father_full, mother_full)), 2)
+###  cov <- diag(c(h2, 1 - h2, rep(1 - h2, nsib), 1, 1))
+###  colnames(cov) <- rownames(cov) <- c("child_gen", "child_env", if ( nsib > 0) paste("sib",1:nsib, "_full", sep = ""),"father_full", "mother_full")
+###  #fixing cov for gen child:
+###  cov[2 + nsib + 1:2, 1] <- cov[1, 2 + nsib + 1:2] <- h2 / sqrt(2)  # verify this but seems okay
+###  #fixing gen cov for siblings full and gen child:
+###  cov[2 + 1:nsib, 1] <- cov[1, 2 + 1:nsib] <- h2  # verify this
+###  # sorting out the correlations of the siblings
+###  cov[2 + 1:nsib, 2 + 1:nsib] <- cov[2 + 1:nsib, 2 + 1:nsib] + h2 # verify this 
+###  #sorting out the correlation between siblings and parents:
+###  cov[ncol(cov) - 0:1, ncol(cov) - 1 - 1:nsib] <- cov[ncol(cov) - 1 - 1:nsib, ncol(cov) - 0:1] <- h2 / sqrt(2) # verify this 
+###  print(cov)
+####  round(100 * cov(cbind(child_gen, 
+####                        child_env = child_full - child_gen, 
+####                        sib_full = sib_full,
+####                        father_full, mother_full)), 2)
 }
 
-#this step becomes slow if the number of groups is high and sex is being accounted for (!)
+
+  if (is.null(dim(thr))) {
+    thr_len = length(thr)
+  } else {
+    thr_len = nrow(thr)
+  }
+
 nb_var <- ncol(cov) - 1
 if (!account_for_sex) {
-  all_config <- do.call(expand.grid, c(rep(list(c(NA,1:(nrow(thr)*2))), nb_var)))
+  all_config <- do.call(expand.grid, c(rep(list(c(NA,1:(thr_len*2))), nb_var)))
   names(all_config) <- c("child_status", if (nsib > 0) paste("sib",1:nsib, "_status", sep = ""), "father_status", "mother_status")
   all_config$string <- as.factor(do.call(paste, all_config + 0L))
 } else {
-  all_config <- do.call(expand.grid, c(rep(list(c(NA,1:(nrow(thr)*2))), nb_var), rep(list(1:2), 1 + nsib)))
+  all_config <- do.call(expand.grid, c(rep(list(c(NA,1:(thr_len*2))), nb_var), rep(list(1:2), 1 + nsib)))
   names(all_config) <- c("child_status", if (nsib > 0) paste("sib",1:nsib, "_status", sep = ""), "father_status", "mother_status", "child_sex", if (nsib > 0) paste("sib",1:nsib, "_sex", sep = ""))
   all_config$string <- as.factor(do.call(paste, all_config + 0L))
 }
-all_config
+all_config = as_tibble(all_config)
+cat("Maximum number of configurations:", nrow(all_config), "\n")
 
+#need to make sure that the ordering is the same. otherwise we might compare the wrong columns.
+config_cols = sort(str_subset(colnames(input), "status|sex"))
+observed_configs = unique(do.call(paste, input[, config_cols]))
+cat("Observed number of configurations:", length(observed_configs), "\n")
+all_conf_cols = sort(colnames(all_config)[-ncol(all_config)])
+all_conf_string = do.call(paste, all_config[,all_conf_cols])
+all_config = all_config[all_conf_string %in% observed_configs,]
+
+cat("simulating the initial data. \n")
 set.seed(1)
 simu_liab <- mvtnorm::rmvnorm(init_samp, sigma = cov)
 
@@ -150,48 +90,104 @@ for (i in 2:ncol(cov)) { #starting at 2 to not filter on os twice, i.e. environm
 
 
 
-if (nsib <= 0) {
-  df_simu_liab <- tibble(
-    child_gen     = simu_liab[, 1],
-    child_sex     = sample(1:2, nrow(simu_liab), replace = TRUE),
-    child_status  = assign_status_sex(simu_liab[, 1] + simu_liab[, 2], thr, child_sex),
-    father_status = assign_status(simu_liab[, 3], thr[,1]),
-    mother_status = assign_status(simu_liab[, 4], thr[,2])
-  ) %>%
-    left_join(all_config) %>%
-    print()
+
+#seq_n <- seq_len(nrow(simu_liab))
+
+#are we accounting for sex or not ?
+if (!account_for_sex) {
+  sex = rep(1, ncol(simu_liab) - 1)
 } else {
-  df_simu_liab <- tibble(
-    child_gen     = simu_liab[, 1],
-    child_sex     = sample(1:2, nrow(simu_liab), replace = TRUE),
-    child_status  = assign_status_sex(simu_liab[, 1] + simu_liab[, 2], thr, child_sex),
-    father_status = assign_status(simu_liab[, ncol(cov) - 1], thr[,1]),
-    mother_status = assign_status(simu_liab[, ncol(cov)]    , thr[,2])
-  ) 
-  sibling_sex       = sapply(1:nsib, FUN = function(x) sample(1:2, nrow(simu_liab), replace = TRUE))
-  sibling_status    = sapply(1:nsib, FUN = function(x) assign_status_sex(simu_liab[,2 + x], thr, sibling_sex[,x]))
-  for (i in 1:nsib) {
-    df_simu_liab[[paste("sib",i, "_sex", sep = "")]] <- sibling_sex[,i]
-    df_simu_liab[[paste("sib",i, "_status", sep = "")]] <- sibling_status[,i]
-  } #very inelegant, but it works..
-  df_simu_liab = left_join(df_simu_liab, all_config) %>%
-    print()
+  sex = list(
+    child_sex  = sample(1:2, size = nrow(simu_liab), replace = TRUE),
+    father_sex = 1,
+    mother_sex = 2
+  )
+  if (nsib > 0) {
+    for (ii in 1:nsib) {
+      sex[[paste("sib", ii, "_sex", sep = "")]] = sample(1:2, size = nrow(simu_liab), replace = TRUE)
+    }
+  }
 }
 
-group_means <- group_by(df_simu_liab, string, .drop = FALSE) %>%
-  summarise(post_mean_liab = mean(child_gen), n = n(),
-            se = sd(child_gen) / sqrt(n)) %>%
-  ungroup() %>%
-  arrange(post_mean_liab) %>%
-  print()
+#get full liab for child:
+simu_liab[,2] = simu_liab[,1] + simu_liab[,2]
 
+all_split <- lapply(2:(3 + 1 + nsib), function(k) {
+  print(k)
+  #flag for account for sex is fixed earlier. 
+  sex_val = sex[[k - 1]]
+  if (length(sex_val) > 1) { #sex is different or the same, but it is there.
+    case_grps = numeric(nrow(simu_liab)) - 9
+    ctrl_grps = numeric(nrow(simu_liab)) - 9
+    for (sex_k in 1:2) {
+      sex_index = sex_val == sex_k
+      case_grps[sex_index] = rowSums(outer(simu_liab[sex_index,k], thr[, sex_k], `>`)) + thr_len
+      ctrl_grps[sex_index] = rowSums(outer(simu_liab[sex_index,k], thr[, sex_k], `>`)) + 1
+    }
+  } else {
+    case_grps = rowSums(outer(simu_liab[,k], thr[, sex_val], `>`)) + thr_len
+    ctrl_grps = rowSums(outer(simu_liab[,k], thr[, sex_val], `>`)) + 1
+  }
+  indiv_split = list()
+  indiv_split[['0']] = which(is.na(case_grps))
+  for (kk in 1:(thr_len)) {
+    indiv_split[[paste(kk)]] = which(ctrl_grps <= kk)
+  }
+  for (kk in (thr_len + 1):(2 * thr_len)) {
+    indiv_split[[paste(kk)]] = which(case_grps >= kk)
+  }
+  indiv_split
+})
+for (i in 1:(3 + nsib)) {
+  all_split[[i]][["sex"]] = sex[[i]]
+}
+
+
+cat("Assigning simulated family to a group: \n")
+
+no_conf = nrow(all_config)
+cat("Number of configurations:", no_conf, "\n")
+
+update_point = round(no_conf/20)
+
+#updating all_config to have 0 in stead of NA values
+all_config[is.na(all_config)] <- 0
+#this step becomes slow if the number of groups is high (!)
+all_config$obs <- lapply(1:nrow(all_config), function(i) {
+  if (i %% update_point == 0) cat("~", round(i/no_conf * 100), "%\n")
+  tmp <- all_config[i,grep("status|sex", colnames(all_config))]
+  all_ind <- lapply(1:(3 + nsib), function(k) {
+    all_split[[k]][[tmp[[k]] + 1]]
+  })
+  if (account_for_sex) {
+    all_ind[["sex"]] = (1:nrow(simu_liab))[sex[[1]] == tmp$child_sex]
+    if (nsib > 0) {
+      for (ik in 1:nsib) { ### Still needs to be tested
+        sib_sex_name = paste("sib", ik,"_sex", sep = "")
+        all_ind[[sib_sex_name]] = (1:nrow(simu_liab))[sex[[ik + 3]] == tmp[[sib_sex_name]]]
+      }
+    }
+  }
+  simu_liab[Reduce(intersect, all_ind),1]
+})
+all_config[["post_mean_liab"]] = sapply(all_config$obs, FUN = mean)
+all_config[["se"]] = sapply(all_config$obs, FUN = function(x) sd(x)/sqrt(length(x)))
+#all_config[all_config$se > 0.01,]
 
 #### Assign group posterior mean genetic liabilities to individuals ####
 
 child_group <- input %>%
-  sample_frac(downsample_frac, weight = ifelse(input$child_status, 1e6, 1)) %>%
-  left_join(all_config) %>%
-  left_join(group_means) %>%
-  print()
-return(child_group)
+  sample_frac(downsample_frac, weight = ifelse(input$child_status > thr_len, 1e6, 1)) %>%
+  left_join(all_config) # %>% print()
+return(child_group[,-grep("obs", colnames(child_group))])
 }
+
+#omni_dat = omniscience(input, h2, thr, nsib)
+#sum(omni_dat$n < 2)
+
+
+
+
+
+
+

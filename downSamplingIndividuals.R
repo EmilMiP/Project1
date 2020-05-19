@@ -2,13 +2,13 @@ library(data.table)
 library(stringr)
 
 #get list of all the summary stats to use, and their true values.
-fileRoot = "/home/emp/faststorage/project1/simulatedData"
-#fileRoot = "D:\\Work\\Project1\\SimlatedData"
+#fileRoot = "/home/emp/faststorage/project1/simulatedData"
+fileRoot = "D:\\Work\\Project1\\SimulatedData"
 base = "sibs2"
-sword = "10k2"
-cword = "C200"
+sword = "100kx10k"
+cword = "C500"
 bword = "_NF"
-identifier = ""
+identifier = "maf05f"
 
 true.files = list.files(path = fileRoot, pattern = "\\.true", full.names = T)
 true.files = str_subset(true.files, pattern = base)
@@ -28,20 +28,21 @@ phen.files = str_subset(phen.files, pattern = cword)
 phen.files = str_subset(phen.files, pattern = bword)
 phen.files = str_subset(phen.files, pattern = identifier)
 
-#phen.files = str_subset(phen.files, pattern = "/sibs")
+phen.files = str_subset(phen.files, pattern = "/sibs")
 
 
-ExcludeListGen = function(keeplist.files, K_child) {
+ExcludeListGen = function(keeplist.files, ratio = .5, n_tot) {
   for (i in seq_along(keeplist.files)) {
     phen = fread(phen.files[i])
-    FID = 1:dim(phen)[1]
-    phen.vec = str_subset(colnames(phen), "CHILD_STATUS")
-    for (j in seq_along(phen.vec)) {
-      ctrls = sort(sample(FID[phen[[phen.vec[j]]] == 0], size = dim(phen)[1] - sum(phen[[phen.vec[j]]] == 1) - 5000))
-      removers = data.frame("FID" = ctrls, "IID" = ctrls)
-      fwrite(removers, paste(gsub("keeplist", "excludeList", keeplist.files[i]), sep = ""), sep = " ", quote = F)
-    }
+    FID = 1:nrow(phen)
+    
+    phen_col = "CHILD_STATUS"
+    ctrls = sample(FID[phen[[phen_col]] == 0], size = n_tot*ratio)
+    cases = sample(FID[phen[[phen_col]] == 1], size = n_tot*(1 - ratio))
+    all_indivs = sort(c(cases, ctrls))
+    removers = data.frame("FID" = all_indivs, "IID" = all_indivs)
+    fwrite(removers, keeplist.files[i], sep = " ", quote = F)
   }
 }
 
-ExcludeListGen(keeplist.files, K_child = 0.05)
+ExcludeListGen(keeplist.files, ratio = .5, n_tot = 10000)

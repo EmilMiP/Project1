@@ -39,7 +39,7 @@ generateChildren = function(
   #liability threshold:
   lia.T = qnorm(1 - K) 
   #liability scale effect sizes:
-  if ( fixed.effect == F) {
+  if (fixed.effect == F) {
     nonzero.betas = rnorm(n = C, mean = 0, sd = sqrt(lia.h2/C))
   } else {
     cat("OBS: currently using FIXED effect sizes! \n")
@@ -161,19 +161,19 @@ generateChildren = function(
 #No. snps:
 M = 10000
 #No. Children:
-NoChildren = 100000
+NoChildren = 10000
 #simulated maf values:
-MAF = runif(n = M, min = 0.01, max = 0.5)
+MAF = runif(n = M, min = 0.05, max = 0.5)
 #No. causal snps:
-C = M*0.02
+C = M*0.1
 #liability scale heritability:
 lia.h2 = 0.5
 #prevalence in parents:
-K = .05 
+K = .2
 #out = "C:\\Users\\FIUN7293\\CommandStationBeta\\EphemeralFolder\\Results\\sim100kx100k_v10"
 nsib = 2
 
-for (out in paste("D:\\Work\\Project1\\SimlatedData\\sibs2_10k2_NF_C",C,"_v", 1:10,"", sep = "")) {
+for (out in paste("D:\\Work\\Project1\\simulatedData\\sibs2_10kx10k_NF_C",C,"_v", 1:1,"_maf005", sep = "")) {
   cat("\n:-================================================================================-:\n")
   cat("\nworking on:\n", out, "\n")
   
