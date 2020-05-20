@@ -141,3 +141,22 @@ ggplot(post_liab) +
   theme(legend.position = "top")
 with(post_liab, c(cor(post_mean_liab, child_gen), cor(child_status, child_gen)))
 # 0.4326187 0.3538239
+
+bigstatsr::plot_grid(
+  ggplot(post_liab) +
+    bigstatsr::theme_bigstatsr(0.8) + 
+    geom_point(aes(post_mean_liab, child_gen, color = child_status), alpha = 0.3) + 
+    geom_abline(col = "black") + 
+    theme(legend.position = "top") + 
+    xlim(-0.5, 2),
+  
+  ggplot(simu_liab) +
+    bigstatsr::theme_bigstatsr(0.8) + 
+    geom_point(aes(post_gen_liab, child_gen, 
+                   color = is_case(child_liab, child_age)), alpha = 0.3) + 
+    geom_abline(col = "black") + 
+    theme(legend.position = "none") + 
+    xlim(-0.5, 2),
+  
+  ncol = 1
+)
