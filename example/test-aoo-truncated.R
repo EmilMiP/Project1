@@ -8,7 +8,7 @@ get_cov <- function(h2, n_sib = 0) {
   cov
 }
 
-cov <- get_cov(h2, n_sib = 0)
+(cov <- get_cov(h2, n_sib = 2))
 
 set.seed(1)
 nsim <- 5000
@@ -64,11 +64,12 @@ for (i in 1:nrow(simu_liab)) {
     upper[4] <- aao_to_liab(x$father_age)
   }
   fixed <- (upper - lower) < 1e-4
-  gen_liabs <- rtmvnorm.gibbs(20e3, burn_in = 1000, sigma = cov, 
+  gen_liabs <- rtmvnorm.gibbs(50e3, burn_in = 1000, sigma = cov, 
                               lower = lower, upper = upper, fixed = fixed)
   # gen_liabs <- gen_liabs[seq(1, length(gen_liabs), by = 20)]  # thinning
   simu_liab$post_gen_liab[i] <- mean(gen_liabs)
   simu_liab$post_gen_liab_se[i] <- sd(gen_liabs) / sqrt(length(gen_liabs))
+  batchmeans::bm(gen_liabs)
 }
 summary(simu_liab$post_gen_liab_se)
 
