@@ -99,7 +99,7 @@ simTrioLiab <- function(N, h2) {
   )
 }
 
-trio_liabs <- simTrioLiab(1e5, h2)
+trio_liabs <- simTrioLiab(1e6, h2)
 # Age is limited by year of birth, etc
 trio_liabs <-
   filter(
@@ -124,6 +124,7 @@ get_ao <- Vectorize(get_age_of_onset)
 get_ea <- function(age, age_of_onset) {
   ifelse(is.na(age_of_onset), age, age_of_onset)
 }
+
 
 sample_table <- trio_liabs %>%
   # add threshold & prevalence for child
@@ -161,34 +162,84 @@ sample_table <- trio_liabs %>%
   rename(father_thres = thres, father_prev = prev)
 
 #### Florian's code using the truncated multivariate normal distribution ####
+sample_table_cases <-
+  filter(sample_table, child_status==1)%>% 
+  sample_n(., 1000)
+sample_table_controls <-
+  filter(sample_table, child_status==0) %>% 
+  sample_n(., 2000)
+sample_table <- rbind(sample_table_cases,sample_table_controls)
+
 
 sample_table$post_gen_liab <- NA
-sample_table$post_gen_liab_se <- NA
+sample_table$post_gen_liab2 <- NA
 inv_cov <- solve(cov <- get_cov(h2))
 
+max_u_bound = Inf
+min_l_bound = -Inf
+
+library(matrixStats)
 for (i in 1:nrow(sample_table)) {
   print(i)
-  lims <- cbind(upper = rep(Inf, 4), lower = rep(-Inf, 4))
+  lims <- cbind(upper = rep(max_u_bound, 4), lower = rep(min_l_bound, 4))
   x <- sample_table[i, ]
-  lims[2, x$child_status  + 1] <- x$child_thres
-  lims[3, x$mother_status + 1] <- x$mother_thres
-  lims[4, x$father_status + 1] <- x$father_thres
-  fixed <- c(FALSE, x$child_status, x$mother_status, x$father_status)
-  # liabs <- tmvtnorm::rtmvnorm(2e4, mean = rep(0, 4), H = inv_cov,
-  #                             lower = lims[, "lower"], upper = lims[, "upper"],
-  #                             algorithm = "gibbs", burn.in.samples = 2000)
-  # liabs <- TruncatedNormal::rtmvnorm(10e3, mu = rep(0, 4), sigma = cov, 
+  if (x$child_status==1){
+    lims[2, 1] <- x$child_thres+0.01
+    lims[2, 2] <- x$child_thres-0.01
+  }
+  else{
+    lims[2, 1] <- x$child_thres
+  }
+  if (x$mother_status==1){
+    lims[3, 1] <- x$mother_thres+0.01
+    lims[3, 2] <- x$mother_thres-0.01
+  }
+  else{
+    lims[3, 1] <- x$child_thres
+  }
+  
+  if (x$father_status==1){
+    lims[4, 1] <- x$father_thres+0.01
+    lims[4, 2] <- x$father_thres-0.01
+  }
+  else{
+    lims[4, 1] <- x$father_thres
+  }
+  # lims[3, x$mother_status + 1] <- x$mother_thres
+  # lims[4, x$father_status + 1] <- x$father_thres
+  liabs <- tmvtnorm::rtmvnorm(2e4, mean = rep(0, 4), H = inv_cov,
+                              lower = lims[, "lower"], upper = lims[, "upper"],
+                              algorithm = "gibbs", burn.in.samples = 1000)
+  
+  # liabs <- TruncatedNormal::rtmvnorm(1e3, mu = rep(0, 4), sigma = cov,
   #                                    lb = lims[, "lower"], ub = lims[, "upper"])
-  # gen_liabs <- liabs[, 1]
-  gen_liabs <- rtmvnorm.gibbs(50e3, burn_in = 1000, sigma = cov, 
-                              lower = lims[, "lower"], 
-                              upper = lims[, "upper"],
-                              fixed = fixed)
-  # gen_liabs <- gen_liabs[seq(1, length(gen_liabs), by = 20)]  # thinning
-  sample_table$post_gen_liab[i] <- mean(gen_liabs)
-  sample_table$post_gen_liab_se[i] <- sd(gen_liabs) / sqrt(length(gen_liabs))
+  sample_table$post_gen_liab[i] <- colMeans(liabs,na.rm = TRUE)[1]
+  sample_table$post_gen_liab2[i] <- colMedians(liabs,na.rm = TRUE)[1]
 }
-summary(sample_table$post_gen_liab_se)
+
+# for (i in 1:nrow(sample_table)) {
+#   print(i)
+#   lims <- cbind(upper = rep(Inf, 4), lower = rep(-Inf, 4))
+#   x <- sample_table[i, ]
+#   lims[2, x$child_status  + 1] <- x$child_thres
+#   lims[3, x$mother_status + 1] <- x$mother_thres
+#   lims[4, x$father_status + 1] <- x$father_thres
+#   fixed <- c(FALSE, x$child_status, x$mother_status, x$father_status)
+#   # liabs <- tmvtnorm::rtmvnorm(2e4, mean = rep(0, 4), H = inv_cov,
+#   #                             lower = lims[, "lower"], upper = lims[, "upper"],
+#   #                             algorithm = "gibbs", burn.in.samples = 2000)
+#   # liabs <- TruncatedNormal::rtmvnorm(10e3, mu = rep(0, 4), sigma = cov, 
+#   #                                    lb = lims[, "lower"], ub = lims[, "upper"])
+#   # gen_liabs <- liabs[, 1]
+#   gen_liabs <- rtmvnorm.gibbs(50e3, burn_in = 1000, sigma = cov, 
+#                               lower = lims[, "lower"], 
+#                               upper = lims[, "upper"],
+#                               fixed = fixed)
+#   # gen_liabs <- gen_liabs[seq(1, length(gen_liabs), by = 20)]  # thinning
+#   sample_table$post_gen_liab[i] <- mean(gen_liabs)
+#   sample_table$post_gen_liab_se[i] <- sd(gen_liabs) / sqrt(length(gen_liabs))
+# }
+# summary(sample_table$post_gen_liab_se)
 
 # microbenchmark::microbenchmark(
 #   tmvtnorm::rtmvnorm(10e3, mean = rep(0, 4), H = inv_cov, 
@@ -226,14 +277,16 @@ sample_table %>%
 ggplot(sample_table) +
   bigstatsr::theme_bigstatsr() + 
   geom_point(aes(post_gen_liab, child_gen, color = factor(child_status)), alpha = 0.4) + 
+  geom_smooth(aes(x=post_gen_liab, y=child_gen)) +
   geom_abline(col = "black", linetype = 2) + 
   theme(legend.position = "top")
-with(sample_table, cor(post_gen_liab, child_gen))  
+with(sample_table, cor(post_gen_liab, child_gen)**2)  
 # 0.3345276 with 1e3 -> 0.3405035 with 100e3 / 0.3409902 with 10e3 and 1e3 burn-in
 
 ggplot(sample_table) +
   bigstatsr::theme_bigstatsr() + 
   geom_point(aes(post_gen_liab, child_gen, color = child_age), alpha = 0.4) + 
+  geom_smooth(aes(x=post_gen_liab, y=child_gen)) +
   geom_abline(col = "black", linetype = 2) + 
   theme(legend.position = "top") +
   scale_color_viridis_c()
@@ -274,8 +327,9 @@ ggplot(child_group) +
   bigstatsr::theme_bigstatsr() + 
   geom_point(aes(post_mean_liab, child_gen, color = factor(child_sex)), alpha = 0.4) + 
   geom_abline(col = "black", linetype = 2) + 
+  geom_smooth(aes(x=post_gen_liab, y=child_gen)) +
   theme(legend.position = "top")
-with(child_group, cor(post_mean_liab, child_gen))  # 0.3394834
+with(child_group, cor(post_mean_liab, child_gen)**2)  # 0.3394834
 
 
 #### Bjarni's original code below ####
