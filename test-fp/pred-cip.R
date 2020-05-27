@@ -12,18 +12,22 @@ age_dist %>%
 str(cip <- bigreadr::fread2("data-oleguer/RESULTS_cip.txt"))
 
 cip %>%
-  filter(birth_year == 1980) %>%
+  filter(birth_year == 1950) %>%
   ggplot(aes(age, cip, color = sex)) +
   geom_line() +
   facet_wrap(~ dx, scales = "free_y")
 
 
 cip %>%
-  filter(dx == "D33") %>%
+  filter(dx == "adhd") %>%
+  filter(birth_year > 1955) %>%
   filter(birth_year %% 5 == 0) %>%
   ggplot(aes(age, cip, color = sex)) +
   geom_line() +
-  facet_wrap(~ birth_year, scales = "free_y")
+  labs(y = "Cumulative incidence rate", x = "Age", legend.title='t') +
+  scale_color_hue(labels = c("F", "M")) +
+  facet_wrap(~ birth_year) 
+  #facet_wrap(~ birth_year, scales = "free_y")
 
 library(xgboost)
 cip_adhd <- cip %>%
