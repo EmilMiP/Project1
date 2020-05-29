@@ -34,19 +34,19 @@ info_liab <- tibble(
   sib_status    = (child_full  > thr[sib_sex])
 )
 
-account_for_sex <- TRUE
+account_for_sex <- F
 if (!account_for_sex) thr[] <- qnorm(1 - mean(K))
 
 
 #### LT-FH ####
 
 nb_var <- ncol(cov) - 1
-all_config <- do.call(expand.grid, c(rep(list(c(FALSE, TRUE)), 3), list(1:2)))
-names(all_config) <- c("child_status", "father_status", "mother_status", "child_sex")
+#all_config <- do.call(expand.grid, c(rep(list(c(FALSE, TRUE)), 3), list(1:2)))
+#names(all_config) <- c("child_status", "father_status", "mother_status", "mother_status", "child_sex")
 
-# all_config <- do.call(expand.grid, c(rep(list(c(FALSE, TRUE)), nb_var), list(1:2, 1:2)))
-# names(all_config) <- c("child_status", "father_status", "mother_status", "sib_status",
-#                        "child_sex", "sib_sex")
+all_config <- do.call(expand.grid, c(rep(list(c(FALSE, TRUE)), nb_var), list(1:2, 1:2)))
+names(all_config) <- c("child_status", "father_status", "mother_status", "sib_status",
+                        "child_sex", "sib_sex")
 all_config$string <- as.factor(do.call(paste, all_config + 0L))
 all_config
 
@@ -87,8 +87,10 @@ ggplot(post_liab) +
   geom_point(aes(post_mean_liab, child_gen, 
                  color = as.factor(child_sex)), alpha = 0.3) + 
   geom_abline(col = "black") + 
-  theme(legend.position = "top")
-with(post_liab, c(cor(post_mean_liab, child_gen), cor(child_status, child_gen)))
+  labs(x='Posterior Mean Liability (LT-FH)', y='True genetic liability',color='Gender')+
+  scale_color_hue(labels = c("M", "F"))+
+  theme(legend.position = "right")
+with(post_liab, c(cor(post_mean_liab, child_gen)**2, cor(child_status, child_gen)**2))
 # 1 sib: 0.4090318 0.3339000
 # 1 sib / no sex: 0.4038593 0.3339000
 # 0 sib: 0.3914486 0.3339000
@@ -97,12 +99,13 @@ with(post_liab, c(cor(post_mean_liab, child_gen), cor(child_status, child_gen)))
 #### Gibbs sampler for TMN distribution ####
 
 source('example/gibbs-sampler.R')
+(thr <- qnorm(1 - K))
 
 post_liab$post_gen_liab <- NA
 post_liab$post_gen_liab_se <- NA
 
 for (i in 1:nrow(post_liab)) {
-  print(i)
+  #print(i)
   lims <- cbind(upper = rep(Inf, ncol(cov)), lower = rep(-Inf, ncol(cov)))
   x <- post_liab[i, ]
   lims[2, x$child_status  + 1] <- thr[x$child_sex]
@@ -111,7 +114,7 @@ for (i in 1:nrow(post_liab)) {
   lims[5, x$sib_status    + 1] <- thr[x$sib_sex]
   # fixed <- c(FALSE, x$child_status, x$mother_status, x$father_status)
   fixed <- rep(FALSE, ncol(cov))
-  gen_liabs <- rtmvnorm.gibbs(20e3, burn_in = 1000, sigma = cov, 
+  gen_liabs <- rtmvnorm.gibbs(10e4, burn_in = 1000, sigma = cov, 
                               lower = lims[, "lower"], 
                               upper = lims[, "upper"],
                               fixed = fixed)
@@ -126,8 +129,10 @@ ggplot(post_liab) +
   geom_point(aes(post_gen_liab, child_gen, 
                  color = as.factor(child_sex)), alpha = 0.3) + 
   geom_abline(col = "black") + 
-  theme(legend.position = "top")
-with(post_liab, c(cor(post_gen_liab, child_gen), cor(child_status, child_gen)))
+  labs(x='Posterior Mean Liability (LTpred)', y='True genetic liability',color='Gender')+
+  scale_color_hue(labels = c("M", "F"))+
+  theme(legend.position = "right")
+with(post_liab, c(cor(post_gen_liab, child_gen)**2, cor(child_status, child_gen)**2))
 # 0.4087596 0.3339000
 
 ggplot(post_liab) +
@@ -136,3 +141,27 @@ ggplot(post_liab) +
                  color = as.factor(child_sex)), alpha = 0.8) + 
   geom_abline(col = "black") + 
   theme(legend.position = "top")
+
+bigstatsr::plot_grid(
+   ggplot(post_liab) +
+    bigstatsr::theme_bigstatsr() + 
+    geom_point(aes(post_mean_liab, child_gen, 
+                   color = as.factor(child_sex)), alpha = 0.3) + 
+    geom_abline(col = "black") + 
+    labs(x='Posterior Mean Genetic Liability (LT-FH)', y='True genetic liability',color='Gender')+
+    scale_color_hue(labels = c("M", "F"))+
+    theme(legend.position = "right")+
+    xlim(-0.5, 2),
+   ggplot(post_liab) +
+     bigstatsr::theme_bigstatsr() + 
+     geom_point(aes(post_gen_liab, child_gen, 
+                    color = as.factor(child_sex)), alpha = 0.3) + 
+     geom_abline(col = "black") + 
+     labs(x='Posterior Mean Genetic Liability (LTpred)', y='True genetic liability',color='Gender')+
+     scale_color_hue(labels = c("M", "F"))+
+     theme(legend.position = "right")+
+     xlim(-0.5, 2),
+
+  ncol = 1
+)
+

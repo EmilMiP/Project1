@@ -44,7 +44,6 @@ simu_liab$post_gen_liab <- NA
 simu_liab$post_gen_liab_se <- NA
 
 for (i in 1:nrow(simu_liab)) {
-  print(i)
   lower <- rep(-Inf, ncol(cov))
   upper <- rep(Inf, ncol(cov))
   x <- simu_liab[i, ]
@@ -64,7 +63,7 @@ for (i in 1:nrow(simu_liab)) {
     upper[4] <- aao_to_liab(x$father_age)
   }
   fixed <- (upper - lower) < 1e-4
-  gen_liabs <- rtmvnorm.gibbs(50e3, burn_in = 1000, sigma = cov, 
+  gen_liabs <- rtmvnorm.gibbs(20e3, burn_in = 1000, sigma = cov, 
                               lower = lower, upper = upper, fixed = fixed)
   # gen_liabs <- gen_liabs[seq(1, length(gen_liabs), by = 20)]  # thinning
   simu_liab$post_gen_liab[i] <- mean(gen_liabs)
@@ -80,8 +79,8 @@ ggplot(simu_liab) +
                  color = is_case(child_liab, child_age)), alpha = 0.3) + 
   geom_abline(col = "black") + 
   theme(legend.position = "top")
-with(simu_liab, c(cor(post_gen_liab, child_gen), 
-                  cor(is_case(child_liab, child_age), child_gen)))
+with(simu_liab, c(cor(post_gen_liab, child_gen)**2, 
+                  cor(is_case(child_liab, child_age)**2, child_gen)))
 # 0.4497893 0.3538239
 
 ggplot(simu_liab) +
@@ -115,6 +114,7 @@ df_simu_ltfh <- tibble(
   left_join(all_config) %>%
   print()
 mean(df_simu_ltfh$mother_status)
+mean(df_simu_ltfh$child_status)
 
 group_means <- group_by(df_simu_ltfh, string, .drop = FALSE) %>%
   summarise(post_mean_liab = mean(child_gen), n = n(),
@@ -140,24 +140,51 @@ ggplot(post_liab) +
   geom_point(aes(post_mean_liab, child_gen, color = child_status), alpha = 0.3) + 
   geom_abline(col = "black") + 
   theme(legend.position = "top")
-with(post_liab, c(cor(post_mean_liab, child_gen), cor(child_status, child_gen)))
+with(post_liab, c(cor(post_mean_liab, child_gen)**2, cor(child_status, child_gen)**2))
 # 0.4326187 0.3538239
+
+ggplot(post_liab) +
+  bigstatsr::theme_bigstatsr() + 
+  geom_point(aes(post_gen_liab, child_gen, 
+                 color = child_status), alpha = 0.3) + 
+  geom_abline(col = "black") + 
+  labs(x='Posterior Mean Liability (LTpred)', y='True genetic liability',color='Status')+
+  scale_color_hue(labels = c("Control", "Case"))+
+  theme(legend.position = "right")
+with(post_liab, c(cor(post_gen_liab, child_gen)**2, cor(child_status, child_gen)**2))
+# 0.4087596 0.3339000
+
+ggplot(post_liab) +
+  bigstatsr::theme_bigstatsr() + 
+  geom_point(aes(post_mean_liab, child_gen, 
+                 color = child_status), alpha = 0.3) + 
+  geom_abline(col = "black") + 
+  labs(x='Posterior Mean Liability (LT-FH)', y='True genetic liability',color='Status')+
+  scale_color_hue(labels = c("Control", "Case"))+
+  theme(legend.position = "right")
+with(post_liab, c(cor(post_mean_liab, child_gen)**2, cor(child_status, child_gen)**2))
+# 0.4087596 0.3339000
 
 bigstatsr::plot_grid(
   ggplot(post_liab) +
-    bigstatsr::theme_bigstatsr(0.8) + 
-    geom_point(aes(post_mean_liab, child_gen, color = child_status), alpha = 0.3) + 
+    bigstatsr::theme_bigstatsr() + 
+    geom_point(aes(post_mean_liab, child_gen, 
+                   color = child_status), alpha = 0.3) + 
     geom_abline(col = "black") + 
-    theme(legend.position = "top") + 
+    labs(x='Posterior Mean Genetic Liability (LT-FH)', y='True genetic liability',color='Status')+
+    scale_color_hue(labels = c("Control", "Case"))+
+    theme(legend.position = "right")+
     xlim(-0.5, 2),
-  
-  ggplot(simu_liab) +
-    bigstatsr::theme_bigstatsr(0.8) + 
+  ggplot(post_liab) +
+    bigstatsr::theme_bigstatsr() + 
     geom_point(aes(post_gen_liab, child_gen, 
-                   color = is_case(child_liab, child_age)), alpha = 0.3) + 
+                   color = child_status), alpha = 0.3) + 
     geom_abline(col = "black") + 
-    theme(legend.position = "none") + 
+    labs(x='Posterior Mean Genetic Liability (LTpred)', y='True genetic liability',color='Status')+
+    scale_color_hue(labels = c("Control", "Case"))+
+    theme(legend.position = "right")+
     xlim(-0.5, 2),
   
   ncol = 1
 )
+
